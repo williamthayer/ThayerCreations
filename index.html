@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Engineering projects, experiments, and build notes from Thayer Creations.">
+  <title>Thayer Creations — Engineering Projects</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23315a47'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='sans-serif' font-size='25' font-weight='700' fill='white'%3ETC%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f3ee;
+      --surface: #fff;
+      --ink: #1d2723;
+      --muted: #68716b;
+      --line: #d8ddd6;
+      --green: #315a47;
+      --green-dark: #234535;
+      --lime: #d6e26e;
+      --serif: Georgia, serif;
+      --sans: "DM Sans", sans-serif;
+      --display: Manrope, sans-serif;
+      --mono: "DM Mono", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    button, input, textarea { color: inherit; font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible,
+    [contenteditable="true"]:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    a { color: inherit; }
+    [hidden] { display: none !important; }
+
+    .site-header { height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+    .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid var(--green); color: var(--green); font: 500 15px var(--mono); transform: rotate(-4deg); }
+    .brand-name { font: 800 12px var(--display); letter-spacing: .14em; text-transform: uppercase; }
+    .header-right, .header-links { display: flex; align-items: center; gap: 25px; }
+    .header-links a, .admin-open { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .header-links a:hover { color: var(--green); }
+    .admin-open { padding: 9px 12px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
+    .admin-open:hover { border-color: var(--green); color: var(--green); }
+
+    main { max-width: 1440px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 0 6.2%; }
+    .masthead { min-height: 380px; padding: 82px 0 65px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 250px); align-items: end; gap: 34px; }
+    .eyebrow, .section-kicker, .detail-category, .admin-kicker { margin: 0 0 17px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    .masthead h1 { max-width: 780px; margin: 0; font: 500 clamp(54px, 9.2vw, 115px)/.92 var(--display); letter-spacing: -.085em; }
+    .masthead h1 em { color: var(--green); font-style: normal; }
+    .masthead-copy { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .masthead-copy strong { display: block; margin-bottom: 8px; color: var(--ink); font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+    .admin-panel { margin: 0 0 54px; padding: 25px 27px 28px; border: 1px solid var(--line); background: var(--surface); }
+    .admin-panel[hidden] { display: none; }
+    .admin-heading { margin-bottom: 23px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .admin-heading h2 { margin: 0; font: 600 26px var(--display); letter-spacing: -.04em; }
+    .admin-kicker { margin-bottom: 7px; }
+    .admin-account { color: var(--muted); font-size: 11px; }
+    .admin-signout, .submit-button, .login-submit { min-height: 39px; padding: 9px 14px; border: 1px solid var(--green); background: var(--green); color: #fff; cursor: pointer; font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .admin-signout { background: transparent; color: var(--green); }
+    .admin-signout:hover, .submit-button:hover, .login-submit:hover { background: var(--green-dark); color: #fff; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+    .form-field { min-width: 0; display: grid; align-content: start; gap: 7px; color: var(--muted); font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    .form-field input, .form-field textarea { width: 100%; min-height: 40px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 0; background: #fff; color: var(--ink); font: 12px var(--sans); letter-spacing: normal; text-transform: none; }
+    .form-field textarea { min-height: 75px; resize: vertical; }
+    .form-field input::placeholder, .form-field textarea::placeholder { color: #9da49e; }
+    .field-full { grid-column: 1 / -1; }
+    .editor-shell { border: 1px solid var(--line); background: #fff; }
+    .editor-toolbar { padding: 6px; display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+    .editor-toolbar button { min-width: 31px; min-height: 30px; padding: 4px 8px; border: 1px solid transparent; background: transparent; color: var(--ink); cursor: pointer; font-size: 12px; }
+    .editor-toolbar button:hover { border-color: var(--line); background: var(--paper); }
+    .editor-toolbar .tool-label { font: 10px var(--mono); }
+    .rich-editor { min-height: 215px; padding: 15px; color: var(--ink); font: 13px/1.75 var(--sans); letter-spacing: normal; text-transform: none; }
+    .rich-editor:empty::before { color: #9da49e; content: "Write the project story here. Use the toolbar to format headings, lists, links, and code."; pointer-events: none; }
+    .rich-editor h2, .rich-editor h3 { margin: 1.5em 0 .5em; font-family: var(--display); }
+    .rich-editor p { margin: 0 0 1em; }
+    .rich-editor blockquote { margin: 1em 0; padding-left: 14px; border-left: 2px solid var(--green); color: var(--muted); }
+    .rich-editor pre { overflow-x: auto; padding: 12px; background: #f1f3ef; font: 11px/1.6 var(--mono); }
+    .rich-editor code { padding: .12em .3em; background: #f1f3ef; font: .9em var(--mono); }
+    .list-editor { display: grid; gap: 9px; }
+    .list-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .list-editor-head > span { color: var(--muted); font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    .small-button, .remove-row { min-height: 29px; padding: 5px 9px; border: 1px solid var(--line); background: transparent; color: var(--green); cursor: pointer; font: 9px var(--mono); text-transform: uppercase; }
+    .small-button:hover, .remove-row:hover { border-color: var(--green); }
+    .repeat-row { padding: 11px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: end; gap: 9px; border: 1px solid var(--line); background: #fafbf8; }
+    .repeat-row .form-field { font-size: 8px; }
+    .repeat-row input { min-height: 35px; padding: 8px; font-size: 11px; }
+    .download-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; }
+    .publish-field { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; color: var(--ink); font: 11px var(--sans); text-transform: none; }
+    .publish-field input { width: 16px; min-height: 16px; accent-color: var(--green); }
+    .form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+    .cancel-edit { min-height: 39px; padding: 9px 13px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font: 10px var(--mono); text-transform: uppercase; }
+    .form-status, .login-status, .load-status { min-height: 18px; margin: 12px 0 0; color: var(--green); font-size: 11px; }
+    .form-status[data-error="true"], .login-status[data-error="true"], .load-status[data-error="true"] { color: #a53d32; }
+    .form-actions button:disabled, .login-submit:disabled { opacity: .6; cursor: wait; }
+    .admin-list { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .admin-list h3 { margin: 0 0 12px; font: 600 14px var(--display); }
+    .admin-list-items { display: grid; gap: 8px; }
+    .admin-list-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; border: 1px solid var(--line); }
+    .admin-list-title { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+    .admin-list-state { margin-left: 7px; color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
+    .admin-list-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+
+    .project-section { padding: 34px 0 90px; border-top: 1px solid var(--line); }
+    .section-heading { margin-bottom: 24px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+    .section-heading h2 { margin: 0; font: 600 clamp(28px, 4vw, 42px)/1.05 var(--display); letter-spacing: -.06em; }
+    .section-kicker { margin-bottom: 9px; }
+    .search-field { width: min(230px, 42vw); min-height: 38px; padding: 8px 11px; border: 1px solid var(--line); background: transparent; font: 11px var(--mono); }
+    .project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 34px 18px; }
+    .project-card { min-width: 0; animation: appear .4s both; }
+    .project-card[hidden] { display: none; }
+    .project-card-link { display: block; color: inherit; text-decoration: none; }
+    .card-image-wrap { position: relative; overflow: hidden; aspect-ratio: 1.33; background: #e4e6df; }
+    .card-image-wrap img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .45s cubic-bezier(.2,.7,.2,1); }
+    .project-card-link:hover .card-image-wrap img { transform: scale(1.035); }
+    .card-image-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #88948b; font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .card-category { position: absolute; left: 12px; bottom: 12px; padding: 6px 8px; background: var(--paper); color: var(--green); font: 9px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .card-content { padding: 13px 0 0; }
+    .card-meta { margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
+    .card-title { margin: 0; font: 600 20px/1.25 var(--display); letter-spacing: -.04em; }
+    .card-summary { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .card-readmore { margin-top: 12px; display: inline-flex; align-items: center; gap: 7px; color: var(--green); font: 9px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .card-readmore span { transition: transform .2s ease; }
+    .project-card-link:hover .card-readmore span { transform: translateX(4px); }
+    .empty-state { padding: 58px 15px; border: 1px dashed var(--line); color: var(--muted); font-size: 13px; line-height: 1.7; text-align: center; }
+    .empty-state strong { display: block; margin-bottom: 6px; color: var(--ink); font: 600 19px var(--display); }
+
+    .detail-view { padding: 32px 0 90px; }
+    .back-link { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 37px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
+    .detail-header { max-width: 950px; margin: 0 auto 34px; }
+    .detail-category { margin-bottom: 12px; }
+    .detail-title { margin: 0; font: 600 clamp(43px, 7.5vw, 91px)/.98 var(--display); letter-spacing: -.08em; }
+    .detail-lead { max-width: 690px; margin: 18px 0 0; color: var(--muted); font-size: clamp(15px, 2vw, 19px); line-height: 1.6; }
+    .detail-meta { margin-top: 21px; display: flex; align-items: center; gap: 14px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+    .detail-cover { max-width: 1050px; margin: 0 auto 45px; background: #e4e6df; }
+    .detail-cover img { width: 100%; max-height: 640px; display: block; object-fit: cover; }
+    .detail-layout { max-width: 1050px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 205px; gap: 55px; }
+    .detail-body { min-width: 0; font-size: 15px; line-height: 1.85; overflow-wrap: break-word; }
+    .detail-body > :first-child { margin-top: 0; }
+    .detail-body h2, .detail-body h3 { margin: 2em 0 .6em; font-family: var(--display); line-height: 1.2; letter-spacing: -.04em; }
+    .detail-body h2 { font-size: 28px; }
+    .detail-body h3 { font-size: 21px; }
+    .detail-body p { margin: 0 0 1.25em; }
+    .detail-body a { color: var(--green); text-underline-offset: 3px; }
+    .detail-body ul, .detail-body ol { padding-left: 1.4em; }
+    .detail-body li { margin: .4em 0; }
+    .detail-body blockquote { margin: 1.5em 0; padding: 3px 0 3px 18px; border-left: 2px solid var(--green); color: var(--muted); }
+    .detail-body pre { overflow-x: auto; padding: 16px; background: #e9ece6; font: 12px/1.7 var(--mono); }
+    .detail-body code { padding: .15em .35em; background: #e9ece6; font: .88em var(--mono); }
+    .detail-aside { align-self: start; position: sticky; top: 24px; padding-top: 5px; }
+    .detail-aside h2 { margin: 0 0 13px; font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .detail-downloads { display: grid; gap: 8px; }
+    .download-link { padding: 11px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); color: var(--green); font-size: 11px; text-decoration: none; }
+    .download-link:hover { border-color: var(--green); background: #fff; }
+    .detail-gallery { max-width: 1050px; margin: 53px auto 0; }
+    .detail-gallery h2 { margin: 0 0 17px; font: 600 21px var(--display); letter-spacing: -.04em; }
+    .detail-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
+    .detail-image { margin: 0; }
+    .detail-image img { width: 100%; max-height: 620px; display: block; object-fit: cover; background: #e4e6df; }
+    .detail-image figcaption { margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .detail-admin { max-width: 1050px; margin: 30px auto 0; padding-top: 17px; border-top: 1px solid var(--line); }
+
+    .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    .login-dialog { width: min(420px, calc(100vw - 32px)); padding: 26px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+    .login-dialog::backdrop { background: rgba(18, 30, 24, .65); }
+    .login-dialog-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+    .login-dialog h2 { margin: 0; font: 600 24px var(--display); letter-spacing: -.04em; }
+    .login-close { width: 32px; height: 32px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 19px; }
+    .login-form { display: grid; gap: 14px; }
+    .login-submit { justify-self: start; }
+    @keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 850px) {
+      .project-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .detail-layout { grid-template-columns: minmax(0, 1fr) 175px; gap: 30px; }
+    }
+    @media (max-width: 620px) {
+      .site-header { height: 65px; padding: 0 5%; }
+      .brand-mark { width: 31px; height: 31px; }
+      .brand-name { font-size: 10px; }
+      .header-right { gap: 10px; }
+      .header-links { display: none; }
+      .admin-open { padding: 8px; font-size: 8px; }
+      main { padding: 0 5%; }
+      .masthead { min-height: 0; padding: 70px 0 55px; grid-template-columns: 1fr; gap: 24px; }
+      .masthead h1 { font-size: clamp(54px, 14vw, 82px); }
+      .masthead-copy { max-width: 300px; }
+      .admin-panel { padding: 19px 15px 20px; }
+      .admin-heading h2 { font-size: 21px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .field-full, .publish-field, .form-actions { grid-column: auto; }
+      .repeat-row, .download-row { grid-template-columns: 1fr; }
+      .repeat-row .remove-row { justify-self: start; }
+      .project-section { padding-bottom: 65px; }
+      .section-heading { align-items: start; }
+      .section-heading h2 { font-size: 30px; }
+      .search-field { width: 130px; }
+      .project-grid { gap: 27px 13px; }
+      .card-title { font-size: 17px; }
+      .card-summary { font-size: 11px; }
+      .card-category { left: 7px; bottom: 7px; padding: 5px 6px; font-size: 8px; }
+      .card-meta { font-size: 8px; }
+      .detail-view { padding-top: 25px; }
+      .back-link { margin-bottom: 28px; }
+      .detail-title { font-size: clamp(41px, 11vw, 67px); }
+      .detail-layout { grid-template-columns: 1fr; gap: 28px; }
+      .detail-aside { position: static; padding-top: 0; }
+      .detail-body { font-size: 14px; }
+      .detail-image-grid { grid-template-columns: 1fr; }
+      .detail-cover { margin-bottom: 31px; }
+      .site-footer { padding: 17px 5%; font-size: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Thayer Creations home">
+      <span class="brand-mark" aria-hidden="true">TC</span>
+      <span class="brand-name">Thayer Creations</span>
+    </a>
+    <div class="header-right">
+      <nav class="header-links" aria-label="Main navigation">
+        <a href="./#projects">Projects</a>
+        <a href="./#about">About</a>
+      </nav>
+      <button class="admin-open" id="admin-open" type="button">Admin sign in</button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="masthead" id="about" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">Engineering · experiments · things made</p>
+        <h1 id="page-title">Ideas into<br><em>working things.</em></h1>
+      </div>
+      <p class="masthead-copy"><strong>Thayer Creations / Project journal</strong>A field log of designs, builds, tests, and lessons learned along the way.</p>
+    </section>
+
+    <section class="admin-panel" id="admin-panel" aria-labelledby="admin-heading" hidden>
+      <div class="admin-heading">
+        <div>
+          <p class="admin-kicker">Private workspace</p>
+          <h2 id="admin-heading">Write a project post</h2>
+          <span class="admin-account" id="admin-account"></span>
+        </div>
+        <button class="admin-signout" id="admin-signout" type="button">Sign out</button>
+      </div>
+      <form id="project-form">
+        <div class="form-grid">
+          <label class="form-field">Project title
+            <input id="project-title" name="title" type="text" maxlength="140" placeholder="A name for this project" required>
+          </label>
+          <label class="form-field">Category
+            <input id="project-category" name="category" type="text" maxlength="50" placeholder="Robotics, fabrication, electronics…" required>
+          </label>
+          <label class="form-field field-full">Short summary
+            <textarea id="project-summary" name="summary" maxlength="300" placeholder="A short introduction shown on the project card." required></textarea>
+          </label>
+          <label class="form-field field-full">Cover image URL
+            <input id="project-cover" name="cover" type="url" inputmode="url" placeholder="https://images.example.com/cover.jpg" required>
+          </label>
+          <div class="form-field field-full">
+            <span>Formatted project story</span>
+            <div class="editor-shell">
+              <div class="editor-toolbar" role="toolbar" aria-label="Format project story">
+                <button type="button" class="tool-label" data-command="formatBlock" data-value="h2" aria-label="Heading">H2</button>
+                <button type="button" class="tool-label" data-command="formatBlock" data-value="p" aria-label="Paragraph">P</button>
+                <button type="button" data-command="bold" aria-label="Bold"><strong>B</strong></button>
+                <button type="button" data-command="italic" aria-label="Italic"><em>I</em></button>
+                <button type="button" data-command="insertUnorderedList" aria-label="Bulleted list">• List</button>
+                <button type="button" data-command="insertOrderedList" aria-label="Numbered list">1. List</button>
+                <button type="button" data-command="formatBlock" data-value="blockquote" aria-label="Quote">Quote</button>
+                <button type="button" id="insert-link" aria-label="Insert link">Link</button>
+                <button type="button" data-command="formatBlock" data-value="pre" aria-label="Code block">Code</button>
+              </div>
+              <div class="rich-editor" id="project-body" contenteditable="true" role="textbox" aria-label="Formatted project story" aria-multiline="true"></div>
+            </div>
+          </div>
+          <div class="list-editor field-full">
+            <div class="list-editor-head"><span>Additional project images</span><button class="small-button" id="add-image" type="button">Add image link</button></div>
+            <div class="repeat-list" id="image-list"></div>
+          </div>
+          <div class="list-editor field-full">
+            <div class="list-editor-head"><span>Downloadable files</span><button class="small-button" id="add-download" type="button">Add file link</button></div>
+            <div class="repeat-list" id="download-list"></div>
+          </div>
+          <label class="publish-field"><input id="project-published" type="checkbox" checked> Publish this post now</label>
+          <div class="form-actions">
+            <button class="submit-button" id="save-project" type="submit">Publish project</button>
+            <button class="cancel-edit" id="cancel-edit" type="button" hidden>Cancel edit</button>
+          </div>
+        </div>
+      </form>
+      <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+      <div class="admin-list" id="admin-list" hidden>
+        <h3>Manage project posts</h3>
+        <div class="admin-list-items" id="admin-list-items"></div>
+      </div>
+    </section>
+
+    <section class="project-section" id="projects" aria-labelledby="projects-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Notes from the workshop</p>
+          <h2 id="projects-heading">Project journal</h2>
+        </div>
+        <input class="search-field" id="project-search" type="search" placeholder="Search projects" aria-label="Search projects">
+      </div>
+      <div class="project-grid" id="project-grid"></div>
+      <p class="load-status" id="load-status" role="status" aria-live="polite"></p>
+      <div class="empty-state" id="empty-state" hidden>
+        <strong>No project posts yet.</strong>
+        New builds and notes will show up here.
+      </div>
+    </section>
+
+    <article class="detail-view" id="detail-view" hidden aria-live="polite">
+      <div id="detail-content">
+        <a class="back-link" id="back-to-projects" href="./#projects">← All projects</a>
+        <header class="detail-header">
+          <p class="detail-category" id="detail-category"></p>
+          <h1 class="detail-title" id="detail-title"></h1>
+          <p class="detail-lead" id="detail-summary"></p>
+          <div class="detail-meta"><span id="detail-date"></span><span aria-hidden="true">·</span><span>Thayer Creations</span></div>
+        </header>
+        <figure class="detail-cover" id="detail-cover"></figure>
+        <div class="detail-layout">
+          <div class="detail-body" id="detail-body"></div>
+          <aside class="detail-aside" id="detail-aside" hidden>
+            <h2>Project files</h2>
+            <div class="detail-downloads" id="detail-downloads"></div>
+          </aside>
+        </div>
+        <section class="detail-gallery" id="detail-gallery" hidden aria-labelledby="gallery-heading">
+          <h2 id="gallery-heading">Build gallery</h2>
+          <div class="detail-image-grid" id="detail-image-grid"></div>
+        </section>
+        <div class="detail-admin" id="detail-admin" hidden></div>
+      </div>
+      <div class="empty-state" id="detail-not-found" hidden>
+        <a class="back-link" href="./#projects">← All projects</a>
+        <strong>Project not found.</strong>
+        This post may have been removed or is still a draft.
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer"><span>Thayer Creations · Engineering project journal</span><span>Built, tested, and documented</span></footer>
+
+  <dialog class="login-dialog" id="login-dialog" aria-labelledby="login-heading">
+    <div class="login-dialog-header">
+      <h2 id="login-heading">Admin sign in</h2>
+      <button class="login-close" id="login-close" type="button" aria-label="Close sign in">×</button>
+    </div>
+    <form class="login-form" id="login-form">
+      <label class="form-field">Email
+        <input id="login-email" name="email" type="email" autocomplete="username" required>
+      </label>
+      <label class="form-field">Password
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="login-submit" type="submit">Sign in</button>
+    </form>
+    <p class="login-status" id="login-status" role="status" aria-live="polite"></p>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script>
+    const config = window.THAYER_CREATIONS_SUPABASE || {};
+    const supabaseClient = window.supabase && config.url && config.anonKey
+      ? window.supabase.createClient(config.url, config.anonKey)
+      : null;
+    const projectGrid = document.querySelector('#project-grid');
+    const emptyState = document.querySelector('#empty-state');
+    const loadStatus = document.querySelector('#load-status');
+    const adminPanel = document.querySelector('#admin-panel');
+    const adminButton = document.querySelector('#admin-open');
+    const adminAccount = document.querySelector('#admin-account');
+    const loginDialog = document.querySelector('#login-dialog');
+    const loginForm = document.querySelector('#login-form');
+    const loginStatus = document.querySelector('#login-status');
+    const loginSubmit = document.querySelector('.login-submit');
+    const projectForm = document.querySelector('#project-form');
+    const formStatus = document.querySelector('#form-status');
+    const saveButton = document.querySelector('#save-project');
+    const cancelEditButton = document.querySelector('#cancel-edit');
+    const adminList = document.querySelector('#admin-list');
+    const adminListItems = document.querySelector('#admin-list-items');
+    const searchInput = document.querySelector('#project-search');
+    const detailView = document.querySelector('#detail-view');
+    const editor = document.querySelector('#project-body');
+    const imageList = document.querySelector('#image-list');
+    const downloadList = document.querySelector('#download-list');
+    const projects = [];
+    let isAdmin = false;
+    let editingId = null;
+
+    function setStatus(element, message, isError = false) {
+      element.textContent = message;
+      if (isError) element.dataset.error = 'true';
+      else delete element.dataset.error;
+    }
+
+    function normalizeUrl(value, label) {
+      const input = value.trim();
+      if (!input) return '';
+      let url;
+      try {
+        url = new URL(input);
+      } catch {
+        throw new Error(`${label} must be a complete URL beginning with http:// or https://.`);
+      }
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        throw new Error(`${label} must use http:// or https://.`);
+      }
+      return url.href;
+    }
+
+    function makeSlug(value) {
+      return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100) || 'project';
+    }
+
+    function formattedDate(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric'
+      }).format(date);
+    }
+
+    function safeHttpHref(value) {
+      try {
+        return normalizeUrl(value, 'Link');
+      } catch {
+        return '';
+      }
+    }
+
+    function sanitizeRichText(html) {
+      const parsed = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+      const sanitizedRoot = document.createElement('div');
+      const allowed = new Set(['P', 'DIV', 'H2', 'H3', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'CODE', 'A', 'BR', 'HR']);
+      const discardWithContents = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'MATH', 'TEMPLATE']);
+
+      function copyChildren(source, destination) {
+        for (const child of source.childNodes) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            destination.append(document.createTextNode(child.textContent || ''));
+            continue;
+          }
+          if (child.nodeType !== Node.ELEMENT_NODE) continue;
+          if (discardWithContents.has(child.tagName)) continue;
+          if (!allowed.has(child.tagName)) {
+            copyChildren(child, destination);
+            continue;
+          }
+          const tagName = child.tagName === 'DIV' ? 'P' : child.tagName.toLowerCase();
+          if (child.tagName === 'A') {
+            const href = safeHttpHref(child.getAttribute('href') || '');
+            if (!href) {
+              copyChildren(child, destination);
+              continue;
+            }
+            const anchor = document.createElement('a');
+            anchor.href = href;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+            copyChildren(child, anchor);
+            destination.append(anchor);
+            continue;
+          }
+          const cleanNode = document.createElement(tagName);
+          copyChildren(child, cleanNode);
+          destination.append(cleanNode);
+        }
+      }
+
+      copyChildren(parsed.body, sanitizedRoot);
+      return sanitizedRoot.innerHTML;
+    }
+
+    function textFromHtml(html) {
+      const holder = document.createElement('div');
+      holder.innerHTML = sanitizeRichText(html);
+      return holder.textContent.trim();
+    }
+
+    function makeElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
+
+    function createImageRow(image = {}) {
+      const row = makeElement('div', 'repeat-row');
+      const urlLabel = makeElement('label', 'form-field', 'Image URL');
+      const urlInput = document.createElement('input');
+      urlInput.type = 'url';
+      urlInput.inputMode = 'url';
+      urlInput.placeholder = 'https://images.example.com/detail.jpg';
+      urlInput.value = image.url || '';
+      urlInput.required = true;
+      urlLabel.append(urlInput);
+
+      const captionLabel = makeElement('label', 'form-field', 'Caption / alt text');
+      const captionInput = document.createElement('input');
+      captionInput.type = 'text';
+      captionInput.maxLength = 180;
+      captionInput.placeholder = 'Describe the image';
+      captionInput.value = image.caption || image.alt || '';
+      captionLabel.append(captionInput);
+
+      const removeButton = makeElement('button', 'remove-row', 'Remove');
+      removeButton.type = 'button';
+      removeButton.setAttribute('aria-label', 'Remove project image link');
+      removeButton.addEventListener('click', () => row.remove());
+      row.append(urlLabel, captionLabel, removeButton);
+      imageList.append(row);
+    }
+
+    function createDownloadRow(download = {}) {
+      const row = makeElement('div', 'repeat-row download-row');
+      const urlLabel = makeElement('label', 'form-field', 'File URL');
+      const urlInput = document.createElement('input');
+      urlInput.type = 'url';
+      urlInput.inputMode = 'url';
+      urlInput.placeholder = 'https://files.example.com/design.zip';
+      urlInput.value = download.url || '';
+      urlInput.required = true;
+      urlLabel.append(urlInput);
+
+      const nameLabel = makeElement('label', 'form-field', 'Link text');
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.maxLength = 100;
+      nameInput.placeholder = 'CAD files (ZIP)';
+      nameInput.value = download.name || '';
+      nameInput.required = true;
+      nameLabel.append(nameInput);
+
+      const removeButton = makeElement('button', 'remove-row', 'Remove');
+      removeButton.type = 'button';
+      removeButton.setAttribute('aria-label', 'Remove downloadable file link');
+      removeButton.addEventListener('click', () => row.remove());
+      row.append(urlLabel, nameLabel, removeButton);
+      downloadList.append(row);
+    }
+
+    function collectRows(container, label, mapper) {
+      return [...container.querySelectorAll('.repeat-row')].map((row, index) => {
+        const inputs = [...row.querySelectorAll('input')];
+        const url = normalizeUrl(inputs[0].value, `${label} ${index + 1}`);
+        const item = mapper(url, inputs, index);
+        return item;
+      });
+    }
+
+    function createCard(project) {
+      const card = makeElement('article', 'project-card');
+      card.dataset.projectId = project.id;
+      card.dataset.projectSlug = project.slug;
+      const link = makeElement('a', 'project-card-link');
+      link.href = `?project=${encodeURIComponent(project.slug)}`;
+      link.setAttribute('aria-label', `Read ${project.title}`);
+      link.dataset.projectLink = '';
+
+      const imageWrap = makeElement('div', 'card-image-wrap');
+      const coverUrl = safeHttpHref(project.cover_image_url || '');
+      if (coverUrl) {
+        const image = document.createElement('img');
+        image.src = coverUrl;
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        imageWrap.append(image);
+      } else {
+        imageWrap.append(makeElement('div', 'card-image-placeholder', 'Project image'));
+      }
+      imageWrap.append(makeElement('span', 'card-category', project.category));
+      const content = makeElement('div', 'card-content');
+      const meta = makeElement('div', 'card-meta');
+      meta.append(makeElement('span', '', project.category), makeElement('time', '', formattedDate(project.created_at)));
+      const heading = makeElement('h3', 'card-title', project.title);
+      const summary = makeElement('p', 'card-summary', project.summary);
+      const readMore = makeElement('span', 'card-readmore');
+      readMore.append(document.createTextNode('Open project '), makeElement('span', '', '→'));
+      content.append(meta, heading, summary, readMore);
+      link.append(imageWrap, content);
+      card.append(link);
+      projectGrid.append(card);
+      return card;
+    }
+
+    function renderProjectCards() {
+      projectGrid.replaceChildren();
+      const visibleProjects = projects.filter((project) => isAdmin || project.published);
+      visibleProjects.forEach(createCard);
+      applySearch();
+      emptyState.hidden = visibleProjects.length > 0;
+      if (visibleProjects.length > 0) setStatus(loadStatus, '');
+    }
+
+    function applySearch() {
+      const query = searchInput.value.trim().toLowerCase();
+      let shown = 0;
+      for (const card of projectGrid.children) {
+        const project = projects.find((item) => item.id === card.dataset.projectId);
+        const matches = !query || `${project.title} ${project.category} ${project.summary}`.toLowerCase().includes(query);
+        card.hidden = !matches;
+        if (matches) shown += 1;
+      }
+      if (projects.filter((project) => isAdmin || project.published).length > 0) {
+        emptyState.hidden = shown > 0;
+        if (shown === 0) {
+          emptyState.hidden = false;
+          emptyState.querySelector('strong').textContent = 'No matching projects.';
+          emptyState.lastChild.textContent = 'Try a different search.';
+        } else {
+          emptyState.querySelector('strong').textContent = 'No project posts yet.';
+          emptyState.lastChild.textContent = 'New builds and notes will show up here.';
+        }
+      }
+    }
+
+    function addAdminListControls() {
+      adminListItems.replaceChildren();
+      const adminProjects = [...projects].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      adminList.hidden = adminProjects.length === 0;
+      adminProjects.forEach((project) => {
+        const row = makeElement('div', 'admin-list-item');
+        const title = makeElement('div', 'admin-list-title');
+        title.append(document.createTextNode(project.title));
+        title.append(makeElement('span', 'admin-list-state', project.published ? 'Published' : 'Draft'));
+        const actions = makeElement('div', 'admin-list-actions');
+        const edit = makeElement('button', 'small-button', 'Edit');
+        edit.type = 'button';
+        edit.addEventListener('click', () => fillProjectForm(project));
+        const remove = makeElement('button', 'small-button', 'Delete');
+        remove.type = 'button';
+        remove.addEventListener('click', () => { void deleteProject(project); });
+        actions.append(edit, remove);
+        row.append(title, actions);
+        adminListItems.append(row);
+      });
+    }
+
+    function renderDetail(project) {
+      detailView.hidden = false;
+      document.querySelector('#detail-category').textContent = project.category;
+      document.querySelector('#detail-title').textContent = project.title;
+      document.querySelector('#detail-summary').textContent = project.summary;
+      document.querySelector('#detail-date').textContent = formattedDate(project.created_at);
+      const cover = document.querySelector('#detail-cover');
+      cover.replaceChildren();
+      const coverUrl = safeHttpHref(project.cover_image_url || '');
+      if (coverUrl) {
+        const image = document.createElement('img');
+        image.src = coverUrl;
+        image.alt = `${project.title} project cover`;
+        image.fetchPriority = 'high';
+        cover.append(image);
+      }
+      document.querySelector('#detail-body').innerHTML = sanitizeRichText(project.body_html || '');
+
+      const downloads = Array.isArray(project.downloads) ? project.downloads : [];
+      const aside = document.querySelector('#detail-aside');
+      const downloadListElement = document.querySelector('#detail-downloads');
+      downloadListElement.replaceChildren();
+      downloads.forEach((download) => {
+        if (!download || !safeHttpHref(download.url)) return;
+        const anchor = makeElement('a', 'download-link');
+        anchor.href = safeHttpHref(download.url);
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        anchor.setAttribute('download', '');
+        anchor.append(makeElement('span', '', download.name || 'Download file'), makeElement('span', '', '↓'));
+        downloadListElement.append(anchor);
+      });
+      aside.hidden = downloadListElement.childElementCount === 0;
+
+      const images = Array.isArray(project.gallery_images) ? project.gallery_images : [];
+      const imageGrid = document.querySelector('#detail-image-grid');
+      imageGrid.replaceChildren();
+      images.forEach((item) => {
+        if (!item || !safeHttpHref(item.url)) return;
+        const figure = makeElement('figure', 'detail-image');
+        const image = document.createElement('img');
+        image.src = safeHttpHref(item.url);
+        image.alt = item.alt || item.caption || '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        figure.append(image);
+        if (item.caption) figure.append(makeElement('figcaption', '', item.caption));
+        imageGrid.append(figure);
+      });
+      document.querySelector('#detail-gallery').hidden = imageGrid.childElementCount === 0;
+
+      const adminDetailControls = document.querySelector('#detail-admin');
+      adminDetailControls.replaceChildren();
+      adminDetailControls.hidden = !isAdmin;
+      if (isAdmin) {
+        const edit = makeElement('button', 'small-button', 'Edit this post');
+        edit.type = 'button';
+        edit.addEventListener('click', () => {
+          fillProjectForm(project);
+          adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        adminDetailControls.append(edit);
+      }
+    }
+
+    function renderRoute() {
+      const slug = new URLSearchParams(window.location.search).get('project');
+      const project = slug && projects.find((item) => item.slug === slug && (isAdmin || item.published));
+      const indexSection = document.querySelector('#projects');
+      const masthead = document.querySelector('.masthead');
+      if (project) {
+        indexSection.hidden = true;
+        masthead.hidden = true;
+        detailView.hidden = false;
+        document.querySelector('#detail-content').hidden = false;
+        document.querySelector('#detail-not-found').hidden = true;
+        renderDetail(project);
+        document.title = `${project.title} — Thayer Creations`;
+      } else if (slug && projects.length > 0) {
+        indexSection.hidden = true;
+        masthead.hidden = true;
+        detailView.hidden = false;
+        document.querySelector('#detail-content').hidden = true;
+        document.querySelector('#detail-not-found').hidden = false;
+        document.title = 'Project not found — Thayer Creations';
+      } else {
+        detailView.hidden = true;
+        document.querySelector('#detail-content').hidden = false;
+        document.querySelector('#detail-not-found').hidden = true;
+        indexSection.hidden = false;
+        masthead.hidden = false;
+        document.title = 'Thayer Creations — Engineering Projects';
+      }
+    }
+
+    function resetProjectForm() {
+      projectForm.reset();
+      editor.replaceChildren();
+      imageList.replaceChildren();
+      downloadList.replaceChildren();
+      document.querySelector('#project-published').checked = true;
+      editingId = null;
+      document.querySelector('#admin-heading').textContent = 'Write a project post';
+      saveButton.textContent = 'Publish project';
+      cancelEditButton.hidden = true;
+      setStatus(formStatus, '');
+    }
+
+    function fillProjectForm(project) {
+      editingId = project.id;
+      document.querySelector('#project-title').value = project.title || '';
+      document.querySelector('#project-category').value = project.category || '';
+      document.querySelector('#project-summary').value = project.summary || '';
+      document.querySelector('#project-cover').value = project.cover_image_url || '';
+      editor.innerHTML = sanitizeRichText(project.body_html || '');
+      imageList.replaceChildren();
+      downloadList.replaceChildren();
+      (Array.isArray(project.gallery_images) ? project.gallery_images : []).forEach(createImageRow);
+      (Array.isArray(project.downloads) ? project.downloads : []).forEach(createDownloadRow);
+      document.querySelector('#project-published').checked = Boolean(project.published);
+      document.querySelector('#admin-heading').textContent = 'Edit project post';
+      saveButton.textContent = 'Save changes';
+      cancelEditButton.hidden = false;
+      setStatus(formStatus, `Editing “${project.title}”.`);
+      adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelector('#project-title').focus({ preventScroll: true });
+    }
+
+    async function loadProjects() {
+      if (!supabaseClient) {
+        setStatus(loadStatus, 'Supabase is not configured. Add the project URL and public key to supabase-config.js to load posts.', true);
+        emptyState.hidden = false;
+        return;
+      }
+      setStatus(loadStatus, 'Loading project posts…');
+      const { data, error } = await supabaseClient
+        .from('projects')
+        .select('id, slug, title, category, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at')
+        .order('created_at', { ascending: false });
+      if (error) {
+        setStatus(loadStatus, `Could not load projects: ${error.message}`, true);
+        emptyState.hidden = true;
+        return;
+      }
+      projects.splice(0, projects.length, ...(data || []));
+      renderProjectCards();
+      addAdminListControls();
+      renderRoute();
+      if (projects.length === 0) setStatus(loadStatus, '');
+    }
+
+    async function verifyAdminSession(session) {
+      if (!session || !supabaseClient) {
+        isAdmin = false;
+        adminPanel.hidden = true;
+        adminAccount.textContent = '';
+        renderProjectCards();
+        addAdminListControls();
+        renderRoute();
+        return false;
+      }
+      const { data, error } = await supabaseClient.rpc('is_project_admin');
+      if (error) {
+        isAdmin = false;
+        adminPanel.hidden = true;
+        setStatus(loginStatus, `Could not verify admin access: ${error.message}`, true);
+        await supabaseClient.auth.signOut();
+        renderProjectCards();
+        renderRoute();
+        return false;
+      }
+      if (!data) {
+        isAdmin = false;
+        adminPanel.hidden = true;
+        setStatus(loginStatus, 'This account is not on the project administrator list.', true);
+        await supabaseClient.auth.signOut();
+        renderProjectCards();
+        renderRoute();
+        return false;
+      }
+      isAdmin = true;
+      adminPanel.hidden = false;
+      adminAccount.textContent = session.user.email || '';
+      loginDialog.close();
+      setStatus(loginStatus, '');
+      await loadProjects();
+      return true;
+    }
+
+    async function deleteProject(project) {
+      if (!window.confirm(`Delete “${project.title}”? This cannot be undone.`)) return;
+      setStatus(formStatus, 'Deleting project…');
+      const { error } = await supabaseClient.from('projects').delete().eq('id', project.id);
+      if (error) {
+        setStatus(formStatus, `Could not delete project: ${error.message}`, true);
+        return;
+      }
+      const index = projects.findIndex((item) => item.id === project.id);
+      if (index >= 0) projects.splice(index, 1);
+      if (editingId === project.id) resetProjectForm();
+      renderProjectCards();
+      addAdminListControls();
+      if (new URLSearchParams(window.location.search).get('project') === project.slug) {
+        history.pushState({}, '', './#projects');
+      }
+      renderRoute();
+      setStatus(formStatus, 'Project deleted.');
+    }
+
+    document.querySelector('#add-image').addEventListener('click', () => createImageRow());
+    document.querySelector('#add-download').addEventListener('click', () => createDownloadRow());
+    cancelEditButton.addEventListener('click', resetProjectForm);
+    searchInput.addEventListener('input', applySearch);
+
+    document.querySelector('.editor-toolbar').addEventListener('mousedown', (event) => {
+      if (event.target.closest('button')) event.preventDefault();
+    });
+    document.querySelector('.editor-toolbar').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-command]');
+      if (!button) return;
+      editor.focus();
+      document.execCommand(button.dataset.command, false, button.dataset.value || null);
+    });
+    document.querySelector('#insert-link').addEventListener('click', () => {
+      const rawUrl = window.prompt('Enter the link URL (https://…)');
+      if (!rawUrl) return;
+      try {
+        const url = normalizeUrl(rawUrl, 'Link');
+        editor.focus();
+        document.execCommand('createLink', false, url);
+        editor.querySelectorAll('a').forEach((anchor) => {
+          if (anchor.href === url) {
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+          }
+        });
+      } catch (error) {
+        setStatus(formStatus, error.message, true);
+      }
+    });
+    editor.addEventListener('paste', (event) => {
+      event.preventDefault();
+      const text = event.clipboardData?.getData('text/plain') || '';
+      document.execCommand('insertText', false, text);
+    });
+
+    projectForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!supabaseClient || !isAdmin) {
+        setStatus(formStatus, 'Sign in as a project administrator before saving.', true);
+        return;
+      }
+      saveButton.disabled = true;
+      setStatus(formStatus, 'Checking your sign-in…');
+      try {
+        const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+        if (userError || !userData.user) throw new Error(userError?.message || 'Your session expired. Sign in again.');
+
+        const title = document.querySelector('#project-title').value.trim();
+        const category = document.querySelector('#project-category').value.trim();
+        const summary = document.querySelector('#project-summary').value.trim();
+        const coverUrl = normalizeUrl(document.querySelector('#project-cover').value, 'Cover image URL');
+        const bodyHtml = sanitizeRichText(editor.innerHTML);
+        if (!title || !category || !summary || !coverUrl || !textFromHtml(bodyHtml)) {
+          throw new Error('Add a title, category, summary, cover image URL, and project story before saving.');
+        }
+        const galleryImages = collectRows(imageList, 'Image URL', (url, inputs) => ({
+          url,
+          caption: inputs[1].value.trim(),
+          alt: inputs[1].value.trim()
+        }));
+        const downloads = collectRows(downloadList, 'File URL', (url, inputs, index) => {
+          const name = inputs[1].value.trim();
+          if (!name) throw new Error(`Add a link text for file ${index + 1}.`);
+          return { url, name };
+        });
+
+        const post = {
+          slug: makeSlug(title),
+          title,
+          category,
+          summary,
+          cover_image_url: coverUrl,
+          body_html: bodyHtml,
+          gallery_images: galleryImages,
+          downloads,
+          published: document.querySelector('#project-published').checked
+        };
+        setStatus(formStatus, editingId ? 'Saving project changes…' : 'Publishing project…');
+        let savedProject;
+        if (editingId) {
+          const { data, error } = await supabaseClient.from('projects').update(post).eq('id', editingId)
+            .select('id, slug, title, category, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
+          if (error) throw error;
+          savedProject = data;
+          const index = projects.findIndex((item) => item.id === editingId);
+          if (index >= 0) projects[index] = savedProject;
+        } else {
+          const { data, error } = await supabaseClient.from('projects').insert({
+            ...post,
+            created_by: userData.user.id
+          }).select('id, slug, title, category, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
+          if (error) throw error;
+          savedProject = data;
+          projects.unshift(savedProject);
+        }
+        resetProjectForm();
+        renderProjectCards();
+        addAdminListControls();
+        renderRoute();
+        setStatus(formStatus, savedProject.published ? 'Project post saved and published.' : 'Project saved as a draft.');
+        if (!new URLSearchParams(window.location.search).has('project')) {
+          document.querySelector('#projects').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } catch (error) {
+        setStatus(formStatus, `Could not save project: ${error.message || 'Network error'}`, true);
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
+
+    adminButton.addEventListener('click', () => {
+      if (isAdmin) {
+        adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      if (!supabaseClient) {
+        setStatus(loginStatus, 'Add the Supabase project URL and public key to supabase-config.js first.', true);
+      } else {
+        setStatus(loginStatus, '');
+      }
+      loginDialog.showModal();
+    });
+    document.querySelector('#login-close').addEventListener('click', () => loginDialog.close());
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!supabaseClient) {
+        setStatus(loginStatus, 'Add the Supabase project URL and public key to supabase-config.js first.', true);
+        return;
+      }
+      loginSubmit.disabled = true;
+      setStatus(loginStatus, 'Signing in…');
+      try {
+        const email = document.querySelector('#login-email').value.trim();
+        const password = document.querySelector('#login-password').value;
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        await verifyAdminSession(data.session);
+      } catch (error) {
+        setStatus(loginStatus, `Sign-in failed: ${error.message || 'Network error'}`, true);
+      } finally {
+        loginSubmit.disabled = false;
+      }
+    });
+    document.querySelector('#admin-signout').addEventListener('click', async () => {
+      if (!supabaseClient) return;
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) setStatus(formStatus, `Could not sign out: ${error.message}`, true);
+    });
+
+    document.querySelector('#detail-not-found').addEventListener('click', (event) => {
+      if (!event.target.closest('.back-link')) return;
+      event.preventDefault();
+      history.pushState({}, '', './#projects');
+      renderRoute();
+      document.querySelector('#projects').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    projectGrid.addEventListener('click', (event) => {
+      const link = event.target.closest('[data-project-link]');
+      if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      history.pushState({}, '', link.href);
+      renderRoute();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    document.querySelector('#back-to-projects').addEventListener('click', (event) => {
+      event.preventDefault();
+      history.pushState({}, '', './#projects');
+      renderRoute();
+      document.querySelector('#projects').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    window.addEventListener('popstate', renderRoute);
+
+    if (supabaseClient) {
+      void loadProjects();
+      supabaseClient.auth.onAuthStateChange((_event, session) => {
+        window.setTimeout(() => { void verifyAdminSession(session); }, 0);
+      });
+    } else {
+      setStatus(loadStatus, 'Supabase is not configured. Add the project URL and public key to supabase-config.js to load posts.', true);
+      emptyState.hidden = false;
+    }
+    renderRoute();
+  </script>
+</body>
+</html>
