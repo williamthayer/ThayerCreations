@@ -49,7 +49,7 @@
 
     main { max-width: 1440px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 0 6.2%; }
     .masthead { min-height: 380px; padding: 82px 0 65px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 250px); align-items: end; gap: 34px; }
-    .eyebrow, .section-kicker, .detail-category, .admin-kicker { margin: 0 0 17px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    .eyebrow, .section-kicker, .admin-kicker { margin: 0 0 17px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
     .masthead h1 { max-width: 780px; margin: 0; font: 500 clamp(54px, 9.2vw, 115px)/.92 var(--display); letter-spacing: -.085em; }
     .masthead h1 em { color: var(--green); font-style: normal; }
     .masthead-copy { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 1.8; }
@@ -119,7 +119,6 @@
     .card-image-wrap img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .45s cubic-bezier(.2,.7,.2,1); }
     .project-card-link:hover .card-image-wrap img { transform: scale(1.035); }
     .card-image-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #88948b; font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
-    .card-category { position: absolute; left: 12px; bottom: 12px; padding: 6px 8px; background: var(--paper); color: var(--green); font: 9px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
     .card-content { padding: 13px 0 0; }
     .card-meta { margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
     .card-title { margin: 0; font: 600 20px/1.25 var(--display); letter-spacing: -.04em; }
@@ -133,7 +132,6 @@
     .detail-view { padding: 32px 0 90px; }
     .back-link { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 37px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
     .detail-header { max-width: 950px; margin: 0 auto 34px; }
-    .detail-category { margin-bottom: 12px; }
     .detail-title { margin: 0; font: 600 clamp(43px, 7.5vw, 91px)/.98 var(--display); letter-spacing: -.08em; }
     .detail-lead { max-width: 690px; margin: 18px 0 0; color: var(--muted); font-size: clamp(15px, 2vw, 19px); line-height: 1.6; }
     .detail-meta { margin-top: 21px; display: flex; align-items: center; gap: 14px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
@@ -202,7 +200,6 @@
       .project-grid { gap: 27px 13px; }
       .card-title { font-size: 17px; }
       .card-summary { font-size: 11px; }
-      .card-category { left: 7px; bottom: 7px; padding: 5px 6px; font-size: 8px; }
       .card-meta { font-size: 8px; }
       .detail-view { padding-top: 25px; }
       .back-link { margin-bottom: 28px; }
@@ -237,10 +234,10 @@
   <main id="top">
     <section class="masthead" id="about" aria-labelledby="page-title">
       <div>
-        <p class="eyebrow">Engineering · experiments · things made</p>
-        <h1 id="page-title">Ideas into<br><em>working things.</em></h1>
+        <p class="eyebrow">Engineering · DIY · Creations</p>
+        <h1 id="page-title">Building it<br><em>different.</em></h1>
       </div>
-      <p class="masthead-copy"><strong>Thayer Creations / Project journal</strong>A field log of designs, builds, tests, and lessons learned along the way.</p>
+      <p class="masthead-copy"><strong>Thayer Creations / Project journal</strong>A field log of my successful and not so successful projects.</p>
     </section>
 
     <section class="admin-panel" id="admin-panel" aria-labelledby="admin-heading" hidden>
@@ -256,9 +253,6 @@
         <div class="form-grid">
           <label class="form-field">Project title
             <input id="project-title" name="title" type="text" maxlength="140" placeholder="A name for this project" required>
-          </label>
-          <label class="form-field">Category
-            <input id="project-category" name="category" type="text" maxlength="50" placeholder="Robotics, fabrication, electronics…" required>
           </label>
           <label class="form-field field-full">Short summary
             <textarea id="project-summary" name="summary" maxlength="300" placeholder="A short introduction shown on the project card." required></textarea>
@@ -284,7 +278,7 @@
             </div>
           </div>
           <div class="list-editor field-full">
-            <div class="list-editor-head"><span>Additional project images</span><button class="small-button" id="add-image" type="button">Add image link</button></div>
+            <div class="list-editor-head"><span>Additional project images (add as many as needed)</span><button class="small-button" id="add-image" type="button">Add image link</button></div>
             <div class="repeat-list" id="image-list"></div>
           </div>
           <div class="list-editor field-full">
@@ -325,7 +319,6 @@
       <div id="detail-content">
         <a class="back-link" id="back-to-projects" href="./#projects">← All projects</a>
         <header class="detail-header">
-          <p class="detail-category" id="detail-category"></p>
           <h1 class="detail-title" id="detail-title"></h1>
           <p class="detail-lead" id="detail-summary"></p>
           <div class="detail-meta"><span id="detail-date"></span><span aria-hidden="true">·</span><span>Thayer Creations</span></div>
@@ -585,10 +578,9 @@
       } else {
         imageWrap.append(makeElement('div', 'card-image-placeholder', 'Project image'));
       }
-      imageWrap.append(makeElement('span', 'card-category', project.category));
       const content = makeElement('div', 'card-content');
       const meta = makeElement('div', 'card-meta');
-      meta.append(makeElement('span', '', project.category), makeElement('time', '', formattedDate(project.created_at)));
+      meta.append(makeElement('time', '', formattedDate(project.created_at)));
       const heading = makeElement('h3', 'card-title', project.title);
       const summary = makeElement('p', 'card-summary', project.summary);
       const readMore = makeElement('span', 'card-readmore');
@@ -614,7 +606,7 @@
       let shown = 0;
       for (const card of projectGrid.children) {
         const project = projects.find((item) => item.id === card.dataset.projectId);
-        const matches = !query || `${project.title} ${project.category} ${project.summary}`.toLowerCase().includes(query);
+        const matches = !query || `${project.title} ${project.summary}`.toLowerCase().includes(query);
         card.hidden = !matches;
         if (matches) shown += 1;
       }
@@ -655,7 +647,6 @@
 
     function renderDetail(project) {
       detailView.hidden = false;
-      document.querySelector('#detail-category').textContent = project.category;
       document.querySelector('#detail-title').textContent = project.title;
       document.querySelector('#detail-summary').textContent = project.summary;
       document.querySelector('#detail-date').textContent = formattedDate(project.created_at);
@@ -764,7 +755,6 @@
     function fillProjectForm(project) {
       editingId = project.id;
       document.querySelector('#project-title').value = project.title || '';
-      document.querySelector('#project-category').value = project.category || '';
       document.querySelector('#project-summary').value = project.summary || '';
       document.querySelector('#project-cover').value = project.cover_image_url || '';
       editor.innerHTML = sanitizeRichText(project.body_html || '');
@@ -790,7 +780,7 @@
       setStatus(loadStatus, 'Loading project posts…');
       const { data, error } = await supabaseClient
         .from('projects')
-        .select('id, slug, title, category, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at')
+        .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at')
         .order('created_at', { ascending: false });
       if (error) {
         setStatus(loadStatus, `Could not load projects: ${error.message}`, true);
@@ -912,12 +902,11 @@
         if (userError || !userData.user) throw new Error(userError?.message || 'Your session expired. Sign in again.');
 
         const title = document.querySelector('#project-title').value.trim();
-        const category = document.querySelector('#project-category').value.trim();
         const summary = document.querySelector('#project-summary').value.trim();
         const coverUrl = normalizeUrl(document.querySelector('#project-cover').value, 'Cover image URL');
         const bodyHtml = sanitizeRichText(editor.innerHTML);
-        if (!title || !category || !summary || !coverUrl || !textFromHtml(bodyHtml)) {
-          throw new Error('Add a title, category, summary, cover image URL, and project story before saving.');
+        if (!title || !summary || !coverUrl || !textFromHtml(bodyHtml)) {
+          throw new Error('Add a title, summary, cover image URL, and project story before saving.');
         }
         const galleryImages = collectRows(imageList, 'Image URL', (url, inputs) => ({
           url,
@@ -933,7 +922,6 @@
         const post = {
           slug: makeSlug(title),
           title,
-          category,
           summary,
           cover_image_url: coverUrl,
           body_html: bodyHtml,
@@ -945,7 +933,7 @@
         let savedProject;
         if (editingId) {
           const { data, error } = await supabaseClient.from('projects').update(post).eq('id', editingId)
-            .select('id, slug, title, category, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
+            .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
           if (error) throw error;
           savedProject = data;
           const index = projects.findIndex((item) => item.id === editingId);
@@ -954,7 +942,7 @@
           const { data, error } = await supabaseClient.from('projects').insert({
             ...post,
             created_by: userData.user.id
-          }).select('id, slug, title, category, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
+          }).select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
           if (error) throw error;
           savedProject = data;
           projects.unshift(savedProject);

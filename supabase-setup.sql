@@ -7,7 +7,6 @@ create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   title text not null,
-  category text not null,
   summary text not null,
   cover_image_url text not null,
   body_html text not null default '',
@@ -17,6 +16,8 @@ create table if not exists public.projects (
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now()
 );
+
+alter table public.projects drop column if exists category;
 
 alter table public.projects enable row level security;
 alter table public.project_admins enable row level security;
