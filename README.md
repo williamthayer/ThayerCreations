@@ -23,7 +23,7 @@ The public key is intended for browser use. Row-level security lets anyone read 
 
 Open the site and choose **Admin sign in**. The project form supports a title, card summary, cover-image URL, formatted story, multiple optional gallery images, and optional downloadable-file links. Click **Add image link** once for each additional gallery image. Images and downloads are linked from their existing public hosts; this site does not upload or copy those files. Supply a direct, publicly reachable URL for each image or file.
 
-Use the story toolbar for headings, bold and italic text, lists, quotes, links, and code blocks. The site sanitizes formatted content before saving and displaying it. The URL slug is generated from the post title; keep titles unique so their slugs do not conflict. Uncheck **Publish this post now** to save a private draft.
+Use the story toolbar for headings, bold and italic text, lists, quotes, links, and code blocks. The site sanitizes formatted content before saving and displaying it. Choose **Save draft** to save work without publishing it; drafts can be incomplete and remain visible only to signed-in project administrators. Choose **Publish project** to publish a new project or a draft, or **Save changes** to update a published project. Published project titles should be unique so their generated URL slugs do not conflict.
 
 For cross-origin file links, the browser or file host may choose to display the file instead of downloading it. Configure the file host to send a download response if a forced download is required.
 

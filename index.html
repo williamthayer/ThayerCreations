@@ -91,10 +91,10 @@
     .repeat-row .form-field { font-size: 8px; }
     .repeat-row input { min-height: 35px; padding: 8px; font-size: 11px; }
     .download-row { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; }
-    .publish-field { grid-column: 1 / -1; display: flex; align-items: center; gap: 9px; color: var(--ink); font: 11px var(--sans); text-transform: none; }
-    .publish-field input { width: 16px; min-height: 16px; accent-color: var(--green); }
     .form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
-    .cancel-edit { min-height: 39px; padding: 9px 13px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font: 10px var(--mono); text-transform: uppercase; }
+    .draft-button, .cancel-edit { min-height: 39px; padding: 9px 13px; border: 1px solid var(--line); background: transparent; color: var(--green); cursor: pointer; font: 10px var(--mono); text-transform: uppercase; }
+    .draft-button:hover, .cancel-edit:hover { border-color: var(--green); }
+    .cancel-edit { color: var(--muted); }
     .form-status, .login-status, .load-status { min-height: 18px; margin: 12px 0 0; color: var(--green); font-size: 11px; }
     .form-status[data-error="true"], .login-status[data-error="true"], .load-status[data-error="true"] { color: #a53d32; }
     .form-actions button:disabled, .login-submit:disabled { opacity: .6; cursor: wait; }
@@ -190,7 +190,7 @@
       .admin-panel { padding: 19px 15px 20px; }
       .admin-heading h2 { font-size: 21px; }
       .form-grid { grid-template-columns: 1fr; }
-      .field-full, .publish-field, .form-actions { grid-column: auto; }
+      .field-full, .form-actions { grid-column: auto; }
       .repeat-row, .download-row { grid-template-columns: 1fr; }
       .repeat-row .remove-row { justify-self: start; }
       .project-section { padding-bottom: 65px; }
@@ -285,9 +285,9 @@
             <div class="list-editor-head"><span>Downloadable files</span><button class="small-button" id="add-download" type="button">Add file link</button></div>
             <div class="repeat-list" id="download-list"></div>
           </div>
-          <label class="publish-field"><input id="project-published" type="checkbox" checked> Publish this post now</label>
           <div class="form-actions">
             <button class="submit-button" id="save-project" type="submit">Publish project</button>
+            <button class="draft-button" id="save-draft" type="submit" formnovalidate>Save draft</button>
             <button class="cancel-edit" id="cancel-edit" type="button" hidden>Cancel edit</button>
           </div>
         </div>
@@ -384,6 +384,7 @@
     const projectForm = document.querySelector('#project-form');
     const formStatus = document.querySelector('#form-status');
     const saveButton = document.querySelector('#save-project');
+    const draftButton = document.querySelector('#save-draft');
     const cancelEditButton = document.querySelector('#cancel-edit');
     const adminList = document.querySelector('#admin-list');
     const adminListItems = document.querySelector('#admin-list-items');
@@ -420,6 +421,15 @@
     function makeSlug(value) {
       return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
         .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100) || 'project';
+    }
+
+    function makeDraftSlug(title) {
+      const base = title.trim() ? makeSlug(title) : 'draft';
+      const currentProject = projects.find((project) => project.id === editingId);
+      if (currentProject?.title === title) return currentProject.slug;
+      if (currentProject?.slug === base) return base;
+      const slugIsTaken = projects.some((project) => project.id !== editingId && project.slug === base);
+      return slugIsTaken ? `${base}-draft-${crypto.randomUUID()}` : base;
     }
 
     function formattedDate(value) {
@@ -548,13 +558,14 @@
       downloadList.append(row);
     }
 
-    function collectRows(container, label, mapper) {
-      return [...container.querySelectorAll('.repeat-row')].map((row, index) => {
-        const inputs = [...row.querySelectorAll('input')];
-        const url = normalizeUrl(inputs[0].value, `${label} ${index + 1}`);
-        const item = mapper(url, inputs, index);
-        return item;
-      });
+    function collectRows(container, label, mapper, allowIncomplete = false) {
+      return [...container.querySelectorAll('.repeat-row')]
+        .filter((row) => !allowIncomplete || [...row.querySelectorAll('input')].some((input) => input.value.trim()))
+        .map((row, index) => {
+          const inputs = [...row.querySelectorAll('input')];
+          const url = normalizeUrl(inputs[0].value, `${label} ${index + 1}`);
+          return mapper(url, inputs, index);
+        });
     }
 
     function createCard(project) {
@@ -744,7 +755,6 @@
       editor.replaceChildren();
       imageList.replaceChildren();
       downloadList.replaceChildren();
-      document.querySelector('#project-published').checked = true;
       editingId = null;
       document.querySelector('#admin-heading').textContent = 'Write a project post';
       saveButton.textContent = 'Publish project';
@@ -762,9 +772,8 @@
       downloadList.replaceChildren();
       (Array.isArray(project.gallery_images) ? project.gallery_images : []).forEach(createImageRow);
       (Array.isArray(project.downloads) ? project.downloads : []).forEach(createDownloadRow);
-      document.querySelector('#project-published').checked = Boolean(project.published);
       document.querySelector('#admin-heading').textContent = 'Edit project post';
-      saveButton.textContent = 'Save changes';
+      saveButton.textContent = project.published ? 'Save changes' : 'Publish project';
       cancelEditButton.hidden = false;
       setStatus(formStatus, `Editing “${project.title}”.`);
       adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -891,11 +900,13 @@
 
     projectForm.addEventListener('submit', async (event) => {
       event.preventDefault();
+      const isDraft = event.submitter === draftButton;
       if (!supabaseClient || !isAdmin) {
         setStatus(formStatus, 'Sign in as a project administrator before saving.', true);
         return;
       }
       saveButton.disabled = true;
+      draftButton.disabled = true;
       setStatus(formStatus, 'Checking your sign-in…');
       try {
         const { data: userData, error: userError } = await supabaseClient.auth.getUser();
@@ -905,31 +916,31 @@
         const summary = document.querySelector('#project-summary').value.trim();
         const coverUrl = normalizeUrl(document.querySelector('#project-cover').value, 'Cover image URL');
         const bodyHtml = sanitizeRichText(editor.innerHTML);
-        if (!title || !summary || !coverUrl || !textFromHtml(bodyHtml)) {
+        if (!isDraft && (!title || !summary || !coverUrl || !textFromHtml(bodyHtml))) {
           throw new Error('Add a title, summary, cover image URL, and project story before saving.');
         }
         const galleryImages = collectRows(imageList, 'Image URL', (url, inputs) => ({
           url,
           caption: inputs[1].value.trim(),
           alt: inputs[1].value.trim()
-        }));
+        }), isDraft);
         const downloads = collectRows(downloadList, 'File URL', (url, inputs, index) => {
           const name = inputs[1].value.trim();
-          if (!name) throw new Error(`Add a link text for file ${index + 1}.`);
+          if (!name && !isDraft) throw new Error(`Add a link text for file ${index + 1}.`);
           return { url, name };
-        });
+        }, isDraft);
 
         const post = {
-          slug: makeSlug(title),
+          slug: isDraft ? makeDraftSlug(title) : makeSlug(title),
           title,
           summary,
           cover_image_url: coverUrl,
           body_html: bodyHtml,
           gallery_images: galleryImages,
           downloads,
-          published: document.querySelector('#project-published').checked
+          published: !isDraft
         };
-        setStatus(formStatus, editingId ? 'Saving project changes…' : 'Publishing project…');
+        setStatus(formStatus, isDraft ? 'Saving project draft…' : editingId ? 'Saving project changes…' : 'Publishing project…');
         let savedProject;
         if (editingId) {
           const { data, error } = await supabaseClient.from('projects').update(post).eq('id', editingId)
@@ -959,6 +970,7 @@
         setStatus(formStatus, `Could not save project: ${error.message || 'Network error'}`, true);
       } finally {
         saveButton.disabled = false;
+        draftButton.disabled = false;
       }
     });
 
