@@ -14,6 +14,7 @@ create table if not exists public.projects (
   downloads jsonb not null default '[]'::jsonb,
   published boolean not null default true,
   created_by uuid not null references auth.users(id),
+  project_date date not null default current_date,
   created_at timestamptz not null default now()
 );
 
@@ -28,6 +29,12 @@ create table if not exists public.site_links (
 );
 
 alter table public.projects drop column if exists category;
+alter table public.projects add column if not exists project_date date;
+update public.projects
+set project_date = date_trunc('month', created_at at time zone 'UTC')::date
+where project_date is null;
+alter table public.projects alter column project_date set default current_date;
+alter table public.projects alter column project_date set not null;
 
 alter table public.projects enable row level security;
 alter table public.site_links enable row level security;

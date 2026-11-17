@@ -130,7 +130,10 @@
     .empty-state strong { display: block; margin-bottom: 6px; color: var(--ink); font: 600 19px var(--display); }
 
     .detail-view { padding: 32px 0 90px; }
-    .back-link { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 37px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
+    .project-navigation { display: flex; align-items: center; gap: 22px; margin-bottom: 37px; }
+    .project-nav-link { color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; }
+    .project-nav-link:hover { color: var(--green-dark); text-decoration: underline; text-underline-offset: 3px; }
+    .back-link { width: fit-content; display: flex; align-items: center; gap: 9px; margin-bottom: 14px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
     .detail-header { max-width: 950px; margin: 0 auto 34px; }
     .detail-title { margin: 0; font: 600 clamp(43px, 7.5vw, 91px)/.98 var(--display); letter-spacing: -.08em; }
     .detail-lead { max-width: 690px; margin: 18px 0 0; color: var(--muted); font-size: clamp(15px, 2vw, 19px); line-height: 1.6; }
@@ -202,7 +205,7 @@
       .card-summary { font-size: 11px; }
       .card-meta { font-size: 8px; }
       .detail-view { padding-top: 25px; }
-      .back-link { margin-bottom: 28px; }
+      .back-link { margin-bottom: 14px; }
       .detail-title { font-size: clamp(41px, 11vw, 67px); }
       .detail-layout { grid-template-columns: 1fr; gap: 28px; }
       .detail-aside { position: static; padding-top: 0; }
@@ -253,6 +256,9 @@
         <div class="form-grid">
           <label class="form-field">Project title
             <input id="project-title" name="title" type="text" maxlength="140" placeholder="A name for this project" required>
+          </label>
+          <label class="form-field">Project date
+            <input id="project-date" name="project-date" type="month" required>
           </label>
           <label class="form-field field-full">Short summary
             <textarea id="project-summary" name="summary" maxlength="300" placeholder="A short introduction shown on the project card." required></textarea>
@@ -318,6 +324,10 @@
     <article class="detail-view" id="detail-view" hidden aria-live="polite">
       <div id="detail-content">
         <a class="back-link" id="back-to-projects" href="./#projects">← All projects</a>
+        <nav class="project-navigation" id="project-navigation" aria-label="Browse projects" hidden>
+          <a class="project-nav-link" id="previous-project" href="#" aria-label="Previous project" hidden>← Previous Project</a>
+          <a class="project-nav-link" id="next-project" href="#" aria-label="Next project" hidden>Next Project →</a>
+        </nav>
         <header class="detail-header">
           <h1 class="detail-title" id="detail-title"></h1>
           <p class="detail-lead" id="detail-summary"></p>
@@ -382,6 +392,7 @@
     const loginStatus = document.querySelector('#login-status');
     const loginSubmit = document.querySelector('.login-submit');
     const projectForm = document.querySelector('#project-form');
+    const projectDateInput = document.querySelector('#project-date');
     const formStatus = document.querySelector('#form-status');
     const saveButton = document.querySelector('#save-project');
     const draftButton = document.querySelector('#save-draft');
@@ -396,6 +407,7 @@
     const projects = [];
     let isAdmin = false;
     let editingId = null;
+    projectDateInput.value = currentMonthValue();
 
     function setStatus(element, message, isError = false) {
       element.textContent = message;
@@ -435,8 +447,13 @@
     function formattedDate(value) {
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric'
+        year: 'numeric', month: 'short', timeZone: 'UTC'
       }).format(date);
+    }
+
+    function currentMonthValue() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
     function safeHttpHref(value) {
@@ -591,7 +608,7 @@
       }
       const content = makeElement('div', 'card-content');
       const meta = makeElement('div', 'card-meta');
-      meta.append(makeElement('time', '', formattedDate(project.created_at)));
+      meta.append(makeElement('time', '', formattedDate(project.project_date)));
       const heading = makeElement('h3', 'card-title', project.title);
       const summary = makeElement('p', 'card-summary', project.summary);
       const readMore = makeElement('span', 'card-readmore');
@@ -658,9 +675,25 @@
 
     function renderDetail(project) {
       detailView.hidden = false;
+      const visibleProjects = projects.filter((item) => isAdmin || item.published);
+      const projectIndex = visibleProjects.findIndex((item) => item.id === project.id);
+      const navigation = document.querySelector('#project-navigation');
+      const previousLink = document.querySelector('#previous-project');
+      const nextLink = document.querySelector('#next-project');
+      const previousProject = projectIndex > 0 ? visibleProjects[projectIndex - 1] : null;
+      const nextProject = projectIndex >= 0 ? visibleProjects[projectIndex + 1] : null;
+      [[previousLink, previousProject, 'Previous'], [nextLink, nextProject, 'Next']].forEach(([link, adjacentProject, direction]) => {
+        link.hidden = !adjacentProject;
+        if (adjacentProject) {
+          link.href = `?project=${encodeURIComponent(adjacentProject.slug)}`;
+          link.setAttribute('aria-label', `${direction} project: ${adjacentProject.title}`);
+          link.title = `${direction} project: ${adjacentProject.title}`;
+        }
+      });
+      navigation.hidden = !previousProject && !nextProject;
       document.querySelector('#detail-title').textContent = project.title;
       document.querySelector('#detail-summary').textContent = project.summary;
-      document.querySelector('#detail-date').textContent = formattedDate(project.created_at);
+      document.querySelector('#detail-date').textContent = formattedDate(project.project_date);
       const cover = document.querySelector('#detail-cover');
       cover.replaceChildren();
       const coverUrl = safeHttpHref(project.cover_image_url || '');
@@ -752,6 +785,7 @@
 
     function resetProjectForm() {
       projectForm.reset();
+      projectDateInput.value = currentMonthValue();
       editor.replaceChildren();
       imageList.replaceChildren();
       downloadList.replaceChildren();
@@ -764,6 +798,7 @@
 
     function fillProjectForm(project) {
       editingId = project.id;
+      projectDateInput.value = (project.project_date || project.created_at).slice(0, 7);
       document.querySelector('#project-title').value = project.title || '';
       document.querySelector('#project-summary').value = project.summary || '';
       document.querySelector('#project-cover').value = project.cover_image_url || '';
@@ -789,7 +824,7 @@
       setStatus(loadStatus, 'Loading project posts…');
       const { data, error } = await supabaseClient
         .from('projects')
-        .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at')
+        .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, project_date, created_at')
         .order('created_at', { ascending: false });
       if (error) {
         setStatus(loadStatus, `Could not load projects: ${error.message}`, true);
@@ -913,9 +948,11 @@
         if (userError || !userData.user) throw new Error(userError?.message || 'Your session expired. Sign in again.');
 
         const title = document.querySelector('#project-title').value.trim();
+        const projectDate = projectDateInput.value;
         const summary = document.querySelector('#project-summary').value.trim();
         const coverUrl = normalizeUrl(document.querySelector('#project-cover').value, 'Cover image URL');
         const bodyHtml = sanitizeRichText(editor.innerHTML);
+        if (!projectDate) throw new Error('Choose a project month and year before saving.');
         if (!isDraft && (!title || !summary || !coverUrl || !textFromHtml(bodyHtml))) {
           throw new Error('Add a title, summary, cover image URL, and project story before saving.');
         }
@@ -933,6 +970,7 @@
         const post = {
           slug: isDraft ? makeDraftSlug(title) : makeSlug(title),
           title,
+          project_date: `${projectDate}-01`,
           summary,
           cover_image_url: coverUrl,
           body_html: bodyHtml,
@@ -944,7 +982,7 @@
         let savedProject;
         if (editingId) {
           const { data, error } = await supabaseClient.from('projects').update(post).eq('id', editingId)
-            .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
+            .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, project_date, created_at').single();
           if (error) throw error;
           savedProject = data;
           const index = projects.findIndex((item) => item.id === editingId);
@@ -953,7 +991,7 @@
           const { data, error } = await supabaseClient.from('projects').insert({
             ...post,
             created_by: userData.user.id
-          }).select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, created_at').single();
+          }).select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, project_date, created_at').single();
           if (error) throw error;
           savedProject = data;
           projects.unshift(savedProject);
@@ -1033,6 +1071,14 @@
       history.pushState({}, '', './#projects');
       renderRoute();
       document.querySelector('#projects').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    document.querySelector('#project-navigation').addEventListener('click', (event) => {
+      const link = event.target.closest('.project-nav-link');
+      if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      history.pushState({}, '', link.href);
+      renderRoute();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
     window.addEventListener('popstate', renderRoute);
 
