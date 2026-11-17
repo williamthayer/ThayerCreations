@@ -15,9 +15,9 @@ A static engineering-project journal hosted with GitHub Pages. Project posts, di
 
 4. `supabase-config.js` is configured with the same Supabase project URL and public publishable key as Anonymouse Photos. If you use another Supabase project, replace those values with its Project URL and public anon/publishable key. Never put a `service_role` or secret key in this file.
 
-Run the setup SQL again on an existing database to apply schema updates; it removes the unused project category column.
+Run the setup SQL again on an existing database to apply schema updates; it removes the unused project category column and creates and seeds the links table.
 
-The public key is intended for browser use. Row-level security lets anyone read published projects, but only users listed in `project_admins` can create, edit, publish, or delete posts. Draft posts are only visible to signed-in project admins.
+The public key is intended for browser use. Row-level security lets anyone read published projects and links, but only users listed in `project_admins` can create, edit, publish, or delete posts and links. Draft posts are only visible to signed-in project admins.
 
 ## Write project posts
 
@@ -26,6 +26,10 @@ Open the site and choose **Admin sign in**. The project form supports a title, c
 Use the story toolbar for headings, bold and italic text, lists, quotes, links, and code blocks. The site sanitizes formatted content before saving and displaying it. Choose **Save draft** to save work without publishing it; drafts can be incomplete and remain visible only to signed-in project administrators. Choose **Publish project** to publish a new project or a draft, or **Save changes** to update a published project. Published project titles should be unique so their generated URL slugs do not conflict.
 
 For cross-origin file links, the browser or file host may choose to display the file instead of downloading it. Configure the file host to send a download response if a forced download is required.
+
+## Awesome Links
+
+The **Awesome Links** page is a curated set of maker resources organized by type. Use the filter above the table to show one type at a time. Sign in with a project administrator account to add, edit, or delete links. Running `supabase-setup.sql` creates the links table and seeds it with starter resources; changes made on the site are saved in Supabase.
 
 ## Publish the site
 
