@@ -163,6 +163,7 @@
     .detail-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
     .detail-image { margin: 0; }
     .detail-image img { width: 100%; max-height: 620px; display: block; object-fit: cover; background: #e4e6df; }
+    .detail-video-frame { width: 100%; min-height: 360px; aspect-ratio: 16 / 9; display: block; border: 0; background: #e4e6df; }
     .detail-image figcaption { margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
     .detail-admin { max-width: 1050px; margin: 30px auto 0; padding-top: 17px; border-top: 1px solid var(--line); }
 
@@ -288,6 +289,10 @@
             <div class="repeat-list" id="image-list"></div>
           </div>
           <div class="list-editor field-full">
+            <div class="list-editor-head"><span>Immich videos (add as many as needed)</span><button class="small-button" id="add-video" type="button">Add video link</button></div>
+            <div class="repeat-list" id="video-list"></div>
+          </div>
+          <div class="list-editor field-full">
             <div class="list-editor-head"><span>Downloadable files</span><button class="small-button" id="add-download" type="button">Add file link</button></div>
             <div class="repeat-list" id="download-list"></div>
           </div>
@@ -403,6 +408,7 @@
     const detailView = document.querySelector('#detail-view');
     const editor = document.querySelector('#project-body');
     const imageList = document.querySelector('#image-list');
+    const videoList = document.querySelector('#video-list');
     const downloadList = document.querySelector('#download-list');
     const projects = [];
     let isAdmin = false;
@@ -459,6 +465,22 @@
     function safeHttpHref(value) {
       try {
         return normalizeUrl(value, 'Link');
+      } catch {
+        return '';
+      }
+    }
+
+    function normalizeImmichShareUrl(value) {
+      const url = new URL(normalizeUrl(value, 'Immich video share URL'));
+      if (!/(?:^|\/)share\/[^/]+\/?$/.test(url.pathname)) {
+        throw new Error('Immich video share URL must be a public Immich link in the form https://photos.example.com/share/… .');
+      }
+      return url.href;
+    }
+
+    function safeImmichShareHref(value) {
+      try {
+        return normalizeImmichShareUrl(value);
       } catch {
         return '';
       }
@@ -545,6 +567,33 @@
       removeButton.addEventListener('click', () => row.remove());
       row.append(urlLabel, captionLabel, removeButton);
       imageList.append(row);
+    }
+
+    function createVideoRow(video = {}) {
+      const row = makeElement('div', 'repeat-row');
+      const urlLabel = makeElement('label', 'form-field', 'Immich share URL');
+      const urlInput = document.createElement('input');
+      urlInput.type = 'url';
+      urlInput.inputMode = 'url';
+      urlInput.placeholder = 'https://photos.example.com/share/…';
+      urlInput.value = video.url || '';
+      urlInput.required = true;
+      urlLabel.append(urlInput);
+
+      const captionLabel = makeElement('label', 'form-field', 'Caption');
+      const captionInput = document.createElement('input');
+      captionInput.type = 'text';
+      captionInput.maxLength = 180;
+      captionInput.placeholder = 'Describe the video';
+      captionInput.value = video.caption || '';
+      captionLabel.append(captionInput);
+
+      const removeButton = makeElement('button', 'remove-row', 'Remove');
+      removeButton.type = 'button';
+      removeButton.setAttribute('aria-label', 'Remove project video link');
+      removeButton.addEventListener('click', () => row.remove());
+      row.append(urlLabel, captionLabel, removeButton);
+      videoList.append(row);
     }
 
     function createDownloadRow(download = {}) {
@@ -723,6 +772,7 @@
       aside.hidden = downloadListElement.childElementCount === 0;
 
       const images = Array.isArray(project.gallery_images) ? project.gallery_images : [];
+      const videos = Array.isArray(project.gallery_videos) ? project.gallery_videos : [];
       const imageGrid = document.querySelector('#detail-image-grid');
       imageGrid.replaceChildren();
       images.forEach((item) => {
@@ -734,6 +784,20 @@
         image.loading = 'lazy';
         image.decoding = 'async';
         figure.append(image);
+        if (item.caption) figure.append(makeElement('figcaption', '', item.caption));
+        imageGrid.append(figure);
+      });
+      videos.forEach((item) => {
+        if (!item || !safeImmichShareHref(item.url)) return;
+        const figure = makeElement('figure', 'detail-image');
+        const frame = document.createElement('iframe');
+        frame.className = 'detail-video-frame';
+        frame.src = safeImmichShareHref(item.url);
+        frame.title = item.caption || 'Immich video';
+        frame.loading = 'lazy';
+        frame.referrerPolicy = 'no-referrer';
+        frame.allow = 'autoplay; fullscreen; picture-in-picture';
+        figure.append(frame);
         if (item.caption) figure.append(makeElement('figcaption', '', item.caption));
         imageGrid.append(figure);
       });
@@ -788,6 +852,7 @@
       projectDateInput.value = currentMonthValue();
       editor.replaceChildren();
       imageList.replaceChildren();
+      videoList.replaceChildren();
       downloadList.replaceChildren();
       editingId = null;
       document.querySelector('#admin-heading').textContent = 'Write a project post';
@@ -804,8 +869,10 @@
       document.querySelector('#project-cover').value = project.cover_image_url || '';
       editor.innerHTML = sanitizeRichText(project.body_html || '');
       imageList.replaceChildren();
+      videoList.replaceChildren();
       downloadList.replaceChildren();
       (Array.isArray(project.gallery_images) ? project.gallery_images : []).forEach(createImageRow);
+      (Array.isArray(project.gallery_videos) ? project.gallery_videos : []).forEach(createVideoRow);
       (Array.isArray(project.downloads) ? project.downloads : []).forEach(createDownloadRow);
       document.querySelector('#admin-heading').textContent = 'Edit project post';
       saveButton.textContent = project.published ? 'Save changes' : 'Publish project';
@@ -824,7 +891,7 @@
       setStatus(loadStatus, 'Loading project posts…');
       const { data, error } = await supabaseClient
         .from('projects')
-        .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, project_date, created_at')
+        .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, gallery_videos, downloads, published, project_date, created_at')
         .order('created_at', { ascending: false });
       if (error) {
         setStatus(loadStatus, `Could not load projects: ${error.message}`, true);
@@ -897,6 +964,7 @@
     }
 
     document.querySelector('#add-image').addEventListener('click', () => createImageRow());
+    document.querySelector('#add-video').addEventListener('click', () => createVideoRow());
     document.querySelector('#add-download').addEventListener('click', () => createDownloadRow());
     cancelEditButton.addEventListener('click', resetProjectForm);
     searchInput.addEventListener('input', applySearch);
@@ -961,6 +1029,10 @@
           caption: inputs[1].value.trim(),
           alt: inputs[1].value.trim()
         }), isDraft);
+        const galleryVideos = collectRows(videoList, 'Immich video share URL', (url, inputs) => ({
+          url: normalizeImmichShareUrl(url),
+          caption: inputs[1].value.trim()
+        }), isDraft);
         const downloads = collectRows(downloadList, 'File URL', (url, inputs, index) => {
           const name = inputs[1].value.trim();
           if (!name && !isDraft) throw new Error(`Add a link text for file ${index + 1}.`);
@@ -975,6 +1047,7 @@
           cover_image_url: coverUrl,
           body_html: bodyHtml,
           gallery_images: galleryImages,
+          gallery_videos: galleryVideos,
           downloads,
           published: !isDraft
         };
@@ -982,7 +1055,7 @@
         let savedProject;
         if (editingId) {
           const { data, error } = await supabaseClient.from('projects').update(post).eq('id', editingId)
-            .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, project_date, created_at').single();
+            .select('id, slug, title, summary, cover_image_url, body_html, gallery_images, gallery_videos, downloads, published, project_date, created_at').single();
           if (error) throw error;
           savedProject = data;
           const index = projects.findIndex((item) => item.id === editingId);
@@ -991,7 +1064,7 @@
           const { data, error } = await supabaseClient.from('projects').insert({
             ...post,
             created_by: userData.user.id
-          }).select('id, slug, title, summary, cover_image_url, body_html, gallery_images, downloads, published, project_date, created_at').single();
+          }).select('id, slug, title, summary, cover_image_url, body_html, gallery_images, gallery_videos, downloads, published, project_date, created_at').single();
           if (error) throw error;
           savedProject = data;
           projects.unshift(savedProject);

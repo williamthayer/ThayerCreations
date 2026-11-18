@@ -11,6 +11,7 @@ create table if not exists public.projects (
   cover_image_url text not null,
   body_html text not null default '',
   gallery_images jsonb not null default '[]'::jsonb,
+  gallery_videos jsonb not null default '[]'::jsonb,
   downloads jsonb not null default '[]'::jsonb,
   published boolean not null default true,
   created_by uuid not null references auth.users(id),
@@ -29,6 +30,7 @@ create table if not exists public.site_links (
 );
 
 alter table public.projects drop column if exists category;
+alter table public.projects add column if not exists gallery_videos jsonb not null default '[]'::jsonb;
 alter table public.projects add column if not exists project_date date;
 update public.projects
 set project_date = date_trunc('month', created_at at time zone 'UTC')::date
