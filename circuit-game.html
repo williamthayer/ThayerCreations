@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Rotate circuit traces to connect a battery and light the LED.">
+  <title>Trace Runner — Thayer Creations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f3ee;
+      --surface: #fff;
+      --ink: #1d2723;
+      --muted: #68716b;
+      --line: #d8ddd6;
+      --green: #315a47;
+      --green-dark: #234535;
+      --blue: #0e5fa8;
+      --trace: #85b4ce;
+      --spark: #28c8ef;
+      --sans: "DM Sans", sans-serif;
+      --display: Manrope, sans-serif;
+      --mono: "DM Mono", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    button, a { color: inherit; font: inherit; -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    .site-header { height: 76px; padding: 0 max(6.2%, calc((100vw - 1200px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+    .brand-mark { width: 35px; height: 35px; display: block; border: 1px solid var(--blue); background: var(--blue); transform: rotate(-4deg); }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-name { font: 800 12px var(--display); letter-spacing: .14em; text-transform: uppercase; }
+    .home-link { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .home-link:hover { color: var(--green); }
+    main { width: min(100% - 40px, 1020px); margin: 0 auto; padding: 54px 0 70px; }
+    .game-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .7fr); align-items: center; gap: clamp(32px, 7vw, 88px); }
+    .game-copy { align-self: center; }
+    .eyebrow { margin: 0 0 14px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 clamp(42px, 6vw, 70px)/.98 var(--display); letter-spacing: -.075em; }
+    h1 em { color: var(--green); font-style: normal; }
+    .intro { max-width: 420px; margin: 19px 0 28px; color: var(--muted); font-size: 14px; line-height: 1.75; }
+    .step-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .step-list li { display: flex; align-items: center; gap: 11px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .step-number { width: 24px; height: 24px; flex: 0 0 24px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--green); font: 10px var(--mono); }
+    .board-frame { padding: clamp(14px, 2.5vw, 24px); border: 1px solid var(--line); background: var(--surface); box-shadow: 0 14px 40px rgba(29, 39, 35, .06); }
+    .board-heading { margin: 0 0 12px; display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font: 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .board { width: 100%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-top: 1px solid #e3e7e2; border-left: 1px solid #e3e7e2; background-color: #fafbf8; background-image: linear-gradient(rgba(49, 90, 71, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(49, 90, 71, .045) 1px, transparent 1px); background-size: 25% 25%; }
+    .board > * { min-width: 0; aspect-ratio: 1; border-right: 1px solid #e3e7e2; border-bottom: 1px solid #e3e7e2; }
+    .empty-cell { display: block; }
+    .trace-tile { padding: 0; display: grid; place-items: center; border: 0; background: transparent; cursor: pointer; touch-action: manipulation; }
+    .trace-tile:hover { background: rgba(40, 200, 239, .07); }
+    .trace-tile:active { background: rgba(40, 200, 239, .14); }
+    .trace-tile svg { width: 100%; height: 100%; overflow: visible; }
+    .trace-path { fill: none; stroke: var(--trace); stroke-width: 19; stroke-linecap: round; stroke-linejoin: round; transition: stroke .18s ease, filter .18s ease; }
+    .trace-center { fill: #a9cee0; transition: fill .18s ease, filter .18s ease; }
+    .trace-tile.is-powered .trace-path { stroke: var(--spark); filter: drop-shadow(0 0 4px rgba(40, 200, 239, .5)); }
+    .trace-tile.is-powered .trace-center { fill: #92edff; filter: drop-shadow(0 0 5px rgba(40, 200, 239, .7)); }
+    .terminal { display: grid; place-items: center; background: rgba(29, 39, 35, .025); }
+    .terminal svg { width: 65%; height: 65%; overflow: visible; }
+    .battery-icon { fill: none; stroke: #315a47; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .terminal.is-powered .battery-icon { stroke: var(--spark); filter: drop-shadow(0 0 3px rgba(40, 200, 239, .55)); }
+    .led-icon { fill: none; stroke: #9da69f; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; transition: stroke .18s ease, filter .18s ease; }
+    .led-icon .led-fill { fill: #f4f3ee; stroke-width: 3; }
+    .led.is-powered .led-icon { stroke: #e5a914; filter: drop-shadow(0 0 7px rgba(255, 195, 40, .9)); }
+    .led.is-powered .led-fill { fill: #ffe486; }
+    .board-footer { min-height: 35px; margin-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font: 9px var(--mono); text-transform: uppercase; }
+    .status { min-height: 20px; margin: 0; color: var(--green); font: 10px/1.5 var(--mono); letter-spacing: .025em; }
+    .status[data-won="true"] { color: #966c00; }
+    .unlock-message { margin: 12px 0 0; padding: 12px; border: 1px solid #e8d18c; background: #fff9e6; color: var(--ink); font-size: 12px; line-height: 1.6; }
+    .unlock-message a { color: var(--green); font-weight: 700; text-underline-offset: 3px; }
+    .reset-button { min-height: 35px; padding: 8px 11px; border: 1px solid var(--line); background: transparent; color: var(--green); cursor: pointer; font: 9px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .reset-button:hover { border-color: var(--green); background: #fff; }
+    .board-help { margin: 9px 0 0; color: #89928b; font-size: 10px; line-height: 1.5; text-align: center; }
+    .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    @media (max-width: 700px) {
+      .site-header { height: 65px; padding: 0 5%; }
+      .brand-mark { width: 31px; height: 31px; }
+      .brand-name { font-size: 10px; }
+      main { width: min(100% - 32px, 480px); padding: 36px 0 50px; }
+      .game-layout { grid-template-columns: 1fr; gap: 28px; }
+      .game-copy { display: contents; }
+      .eyebrow { margin-bottom: -20px; }
+      h1 { font-size: clamp(44px, 12vw, 62px); }
+      .intro { margin: -14px 0 0; }
+      .step-list { order: 1; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .step-list li { align-items: start; gap: 7px; font-size: 10px; }
+      .step-number { width: 20px; height: 20px; flex-basis: 20px; }
+      .board-frame { order: 2; padding: clamp(12px, 3.5vw, 18px); }
+      .board-footer { align-items: flex-start; }
+      .status { max-width: 68%; }
+      .site-footer { padding: 18px 5%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Thayer Creations home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <g fill="none" stroke="#073f70" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" opacity=".65">
+            <path d="M8 31h6v8h5M12 57v-5h11v-4M32 8v5h7v5h4M59 30h-5v-6M58 53h-9v4h-5M7 22h6v4h4M6 43h8v-3h3M23 7v5h5v3M31 57v-6h4v-4M40 57v-6h-3v-3M57 10h-7v4h-4M58 34h-3v-3M6 56h6v-5h3M47 58v-4h4v-2"/>
+          </g>
+          <g fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5">
+            <path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10"/>
+          </g>
+          <g fill="#e7f7ff">
+            <circle cx="10" cy="17" r="4"/><circle cx="28" cy="17" r="4"/><circle cx="19" cy="49" r="4"/>
+            <circle cx="53" cy="19" r="4"/><circle cx="53" cy="45" r="4"/>
+          </g>
+        </svg>
+      </span>
+      <span class="brand-name">Thayer Creations</span>
+    </a>
+    <a class="home-link" href="./">Back to projects</a>
+  </header>
+
+  <main>
+    <div class="game-layout">
+      <section class="game-copy" aria-labelledby="page-title">
+        <p class="eyebrow">A tiny circuit challenge</p>
+        <h1 id="page-title">Trace<br><em>Runner.</em></h1>
+        <p class="intro">The battery is ready, but the circuit is broken. Rotate the copper traces until power reaches the LED.</p>
+        <ol class="step-list">
+          <li><span class="step-number">01</span><span>Follow the grid from + to the LED.</span></li>
+          <li><span class="step-number">02</span><span>Click a trace to rotate it clockwise.</span></li>
+          <li><span class="step-number">03</span><span>Connect every gap and light it up.</span></li>
+        </ol>
+      </section>
+
+      <section class="board-frame" aria-label="Circuit puzzle">
+        <p class="board-heading"><span>Trace puzzle</span><span>01 / 01</span></p>
+        <div class="board" id="board" role="grid" aria-label="Circuit board"></div>
+        <div class="board-footer">
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+          <button class="reset-button" id="reset" type="button">Reshuffle</button>
+        </div>
+        <p class="unlock-message" id="unlock-message" hidden>Nice work! You unlocked <a href="./super-ball-adventure.html">Super Ball Adventure</a>.</p>
+        <p class="board-help">Each turn shifts a trace 90° clockwise.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <span>Thayer Creations</span>
+    <span>Make · Tinker · Repeat</span>
+  </footer>
+
+  <script>
+    const boardSize = 6;
+    const directionOrder = ['N', 'E', 'S', 'W'];
+    const directionOffset = { N: [-1, 0], E: [0, 1], S: [1, 0], W: [0, -1] };
+    const oppositeDirection = { N: 'S', E: 'W', S: 'N', W: 'E' };
+    const battery = { row: 5, column: 0 };
+    const led = { row: 0, column: 5 };
+    const traces = [
+      { row: 4, column: 0, base: ['S', 'E'] },
+      { row: 4, column: 1, base: ['W', 'N'] },
+      { row: 3, column: 1, base: ['S', 'E'] },
+      { row: 3, column: 2, base: ['W', 'E'] },
+      { row: 3, column: 3, base: ['W', 'N'] },
+      { row: 2, column: 3, base: ['N', 'S'] },
+      { row: 1, column: 3, base: ['S', 'E'] },
+      { row: 1, column: 4, base: ['W', 'N'] },
+      { row: 0, column: 4, base: ['S', 'E'] },
+    ];
+    const board = document.querySelector('#board');
+    const status = document.querySelector('#status');
+    const unlockMessage = document.querySelector('#unlock-message');
+    const traceByCell = new Map(traces.map((trace) => [`${trace.row},${trace.column}`, trace]));
+    let batteryCell;
+    let ledCell;
+
+    function directionsFor(trace) {
+      return trace.base.map((direction) => directionOrder[(directionOrder.indexOf(direction) + trace.rotation) % 4]);
+    }
+
+    function createTerminal(type) {
+      const terminal = document.createElement('div');
+      terminal.className = `terminal ${type}`;
+      terminal.setAttribute('role', 'gridcell');
+      terminal.setAttribute('aria-label', type === 'battery' ? 'Battery, positive terminal' : 'LED, circuit target');
+      terminal.innerHTML = type === 'battery'
+        ? '<svg viewBox="0 0 64 64" aria-hidden="true"><path class="battery-icon" d="M23 14h18v10h9v29H14V24h9zM32 29v15M25 36.5h14"/></svg>'
+        : '<svg viewBox="0 0 64 64" aria-hidden="true"><path class="led-icon" d="M24 39c0-6-9-10-9-19a17 17 0 0 1 34 0c0 9-9 13-9 19M25 45h14M27 51h10"/><path class="led-icon led-fill" d="M23 21a9 9 0 0 1 9-9"/></svg>';
+      return terminal;
+    }
+
+    function createTraceTile(trace) {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'trace-tile';
+      tile.setAttribute('role', 'gridcell');
+      tile.addEventListener('click', () => {
+        trace.rotation = (trace.rotation + 1) % 4;
+        render();
+      });
+      trace.button = tile;
+      return tile;
+    }
+
+    function drawTrace(trace) {
+      const segments = directionsFor(trace).map((direction) => {
+        const pathByDirection = {
+          N: 'M50 50V4',
+          E: 'M50 50H96',
+          S: 'M50 50V96',
+          W: 'M50 50H4',
+        };
+        return `<path class="trace-path" d="${pathByDirection[direction]}"/>`;
+      }).join('');
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 100 100');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.innerHTML = `${segments}<circle class="trace-center" cx="50" cy="50" r="12"/>`;
+      trace.button.replaceChildren(svg);
+      trace.button.classList.toggle('is-powered', trace.powered);
+      const row = trace.row + 1;
+      const column = trace.column + 1;
+      trace.button.setAttribute('aria-label', `Trace at row ${row}, column ${column}; connects ${directionsFor(trace).join(' and ')}. Rotate clockwise.`);
+    }
+
+    function render() {
+      const powered = new Set();
+      const pending = [{ ...battery, directions: ['N'], kind: 'battery' }];
+      const visited = new Set();
+      traces.forEach((trace) => { trace.powered = false; });
+
+      while (pending.length) {
+        const current = pending.pop();
+        const key = `${current.row},${current.column}`;
+        if (visited.has(key)) continue;
+        visited.add(key);
+        if (current.kind === 'trace') {
+          current.trace.powered = true;
+          powered.add(key);
+        }
+
+        for (const direction of current.directions) {
+          const [rowOffset, columnOffset] = directionOffset[direction];
+          const row = current.row + rowOffset;
+          const column = current.column + columnOffset;
+          const nextKey = `${row},${column}`;
+          if (visited.has(nextKey)) continue;
+          const neighbor = traceByCell.get(nextKey);
+          if (neighbor && directionsFor(neighbor).includes(oppositeDirection[direction])) {
+            pending.push({ row, column, directions: directionsFor(neighbor), kind: 'trace', trace: neighbor });
+          } else if (row === led.row && column === led.column && direction === 'E') {
+            pending.push({ row, column, directions: ['W'], kind: 'led' });
+          }
+        }
+      }
+
+      traces.forEach(drawTrace);
+      batteryCell.classList.toggle('is-powered', powered.size > 0);
+      const lit = visited.has(`${led.row},${led.column}`);
+      ledCell.classList.toggle('is-powered', lit);
+      unlockMessage.hidden = !lit;
+      status.dataset.won = String(lit);
+      status.textContent = lit
+        ? 'Circuit complete. The LED is lit!'
+        : `Power reaches ${powered.size} of ${traces.length} traces.`;
+    }
+
+    function reshuffle() {
+      do {
+        traces.forEach((trace) => {
+          trace.rotation = Math.floor(Math.random() * 4);
+        });
+      } while (traces.every((trace) => trace.base.every((direction) => directionsFor(trace).includes(direction))));
+      render();
+    }
+
+    for (let row = 0; row < boardSize; row += 1) {
+      for (let column = 0; column < boardSize; column += 1) {
+        const key = `${row},${column}`;
+        if (row === battery.row && column === battery.column) {
+          batteryCell = createTerminal('battery');
+          board.append(batteryCell);
+        } else if (row === led.row && column === led.column) {
+          ledCell = createTerminal('led');
+          board.append(ledCell);
+        } else if (traceByCell.has(key)) {
+          board.append(createTraceTile(traceByCell.get(key)));
+        } else {
+          const empty = document.createElement('span');
+          empty.className = 'empty-cell';
+          empty.setAttribute('role', 'gridcell');
+          empty.setAttribute('aria-hidden', 'true');
+          board.append(empty);
+        }
+      }
+    }
+    document.querySelector('#reset').addEventListener('click', reshuffle);
+    reshuffle();
+  </script>
+</body>
+</html>

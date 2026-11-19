@@ -21,7 +21,7 @@ The public key is intended for browser use. Row-level security lets anyone read 
 
 ## Write project posts
 
-Open the site and choose **Admin sign in**. The project form supports a title, month and year, card summary, cover-image URL, formatted story, multiple optional gallery images and Immich videos, and optional downloadable-file links. The month and year can be changed when editing a post and are what visitors see as the project date. Click **Add image link** or **Add video link** for each gallery item. Images and downloads are linked from their existing public hosts; videos use Immich public share links and display the Immich viewer in the Build gallery. This site does not upload or copy those files. Share links must be public and active; anyone who can view the published project can open its video links. Immich must allow its share page to be embedded; if its security headers block framing, adjust the Immich or reverse-proxy frame policy.
+Open the site and choose **Admin sign in**. The project form supports a title, month and year, card summary, cover-image URL, formatted story, multiple optional gallery images and Immich videos, and optional downloadable-file links. The month and year can be changed when editing a post and are what visitors see as the project date. Click **Add image link** or **Add video link** for each gallery item. Gallery images need a direct image URL that returns the photo itself; an Immich `/share/` page is an HTML viewer, not an image URL. Videos use Immich public share links and display the Immich viewer in the Build gallery. This site does not upload or copy those files. Share links must be public and active; anyone who can view the published project can open its video links. Immich must allow its share page to be embedded; if its security headers block framing, adjust the Immich or reverse-proxy frame policy.
 
 Use the story toolbar for headings, bold and italic text, lists, quotes, links, and code blocks. The site sanitizes formatted content before saving and displaying it. Choose **Save draft** to save work without publishing it; drafts can be incomplete and remain visible only to signed-in project administrators. Choose **Publish project** to publish a new project or a draft, or **Save changes** to update a published project. Published project titles should be unique so their generated URL slugs do not conflict.
 
@@ -30,6 +30,10 @@ For cross-origin file links, the browser or file host may choose to display the 
 ## Awesome Links
 
 The **Awesome Links** page is a curated set of maker resources organized by type. Use the filter above the table to show one type at a time. Sign in with a project administrator account to add, edit, or delete links. Running `supabase-setup.sql` creates the links table and seeds it with starter resources; changes made on the site are saved in Supabase.
+
+## Trace Runner
+
+Double-click the site logo to open **Trace Runner**, a small circuit puzzle. Rotate each trace clockwise to connect the battery to the LED; use **Reshuffle** to start a new arrangement. Completing the circuit unlocks **Super Ball Adventure**, which embeds the Scratch game player.
 
 ## Publish the site
 

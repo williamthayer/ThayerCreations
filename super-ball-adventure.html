@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Play Super Ball Adventure, a Scratch game.">
+  <title>Super Ball Adventure — Thayer Creations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f3ee;
+      --ink: #1d2723;
+      --muted: #68716b;
+      --line: #d8ddd6;
+      --green: #315a47;
+      --blue: #0e5fa8;
+      --sans: "DM Sans", sans-serif;
+      --display: Manrope, sans-serif;
+      --mono: "DM Mono", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    button, a { color: inherit; font: inherit; -webkit-tap-highlight-color: transparent; }
+    a:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    .site-header { height: 76px; padding: 0 max(6.2%, calc((100vw - 1200px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
+    .brand-mark { width: 35px; height: 35px; display: block; border: 1px solid var(--blue); background: var(--blue); transform: rotate(-4deg); }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-name { font: 800 12px var(--display); letter-spacing: .14em; text-transform: uppercase; }
+    .back-link { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .back-link:hover, .scratch-link:hover { color: var(--green); }
+    main { width: min(100% - 40px, 1000px); min-height: calc(100vh - 150px); margin: 0 auto; padding: 50px 0 65px; }
+    .eyebrow { margin: 0 0 13px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 clamp(38px, 6vw, 66px)/1 var(--display); letter-spacing: -.075em; }
+    .intro { margin: 14px 0 24px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .player-frame { overflow: hidden; border: 1px solid var(--line); background: #fff; box-shadow: 0 14px 40px rgba(29, 39, 35, .06); }
+    .player-frame iframe { width: 100%; aspect-ratio: 485 / 402; display: block; border: 0; }
+    .player-footer { padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--line); }
+    .player-footer p { margin: 0; color: var(--muted); font-size: 11px; }
+    .scratch-link { color: var(--green); font: 9px var(--mono); text-decoration: none; text-transform: uppercase; }
+    .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    @media (max-width: 620px) {
+      .site-header { height: 65px; padding: 0 5%; }
+      .brand-mark { width: 31px; height: 31px; }
+      .brand-name { font-size: 10px; }
+      main { width: min(100% - 32px, 500px); padding: 35px 0 45px; }
+      .player-frame iframe { aspect-ratio: 1 / 1; }
+      .player-footer { align-items: flex-start; flex-direction: column; }
+      .site-footer { padding: 18px 5%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Thayer Creations home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <g fill="none" stroke="#073f70" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" opacity=".65">
+            <path d="M8 31h6v8h5M12 57v-5h11v-4M32 8v5h7v5h4M59 30h-5v-6M58 53h-9v4h-5M7 22h6v4h4M6 43h8v-3h3M23 7v5h5v3M31 57v-6h4v-4M40 57v-6h-3v-3M57 10h-7v4h-4M58 34h-3v-3M6 56h6v-5h3M47 58v-4h4v-2"/>
+          </g>
+          <g fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5">
+            <path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10"/>
+          </g>
+          <g fill="#e7f7ff">
+            <circle cx="10" cy="17" r="4"/><circle cx="28" cy="17" r="4"/><circle cx="19" cy="49" r="4"/>
+            <circle cx="53" cy="19" r="4"/><circle cx="53" cy="45" r="4"/>
+          </g>
+        </svg>
+      </span>
+      <span class="brand-name">Thayer Creations</span>
+    </a>
+    <a class="back-link" href="./circuit-game.html">Back to Trace Runner</a>
+  </header>
+
+  <main>
+    <p class="eyebrow">Unlocked game</p>
+    <h1>Super Ball Adventure</h1>
+    <p class="intro">You completed the circuit. Now jump into Super Ball Adventure.</p>
+    <section class="player-frame" aria-label="Super Ball Adventure Scratch game">
+      <iframe
+        src="https://scratch.mit.edu/projects/2305655/embed"
+        title="Super Ball Adventure"
+        allowfullscreen
+        loading="lazy"></iframe>
+      <div class="player-footer">
+        <p>Game not loading? Try the Scratch player directly.</p>
+        <a class="scratch-link" href="https://scratch.mit.edu/projects/2305655/fullscreen/" target="_blank" rel="noopener noreferrer">Open in Scratch</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>Thayer Creations</span>
+    <span>Make · Tinker · Repeat</span>
+  </footer>
+</body>
+</html>
