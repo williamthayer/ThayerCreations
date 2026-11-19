@@ -1,7 +1,7 @@
 (() => {
-  const brand = document.querySelector('.brand');
+  const logo = document.querySelector('.brand-mark');
   let sparkAudioContext;
-  if (!brand) return;
+  if (!logo) return;
 
   function playSparkSound() {
     if (!sparkAudioContext) {
@@ -47,13 +47,12 @@
     noise.stop(startTime + 0.06);
   }
 
-  brand.addEventListener('click', (event) => {
+  logo.addEventListener('click', (event) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const mark = brand.querySelector('.brand-mark');
-    mark.querySelectorAll('.brand-spark').forEach((spark) => spark.remove());
+    logo.querySelectorAll('.brand-spark').forEach((spark) => spark.remove());
     const sparkColors = ['#fff0a8', '#a9e3ff'];
     for (let index = 0; index < 10; index += 1) {
       const spark = document.createElement('span');
@@ -62,12 +61,12 @@
       spark.style.setProperty('--spark-distance', `${18 + (index % 3) * 5}px`);
       spark.style.setProperty('--spark-color', sparkColors[index % sparkColors.length]);
       spark.addEventListener('animationend', () => spark.remove(), { once: true });
-      mark.append(spark);
+      logo.append(spark);
     }
     playSparkSound();
   });
 
-  brand.addEventListener('dblclick', (event) => {
+  logo.addEventListener('dblclick', (event) => {
     event.preventDefault();
     window.location.assign('./circuit-game.html');
   });

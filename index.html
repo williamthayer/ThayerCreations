@@ -38,15 +38,16 @@
     [hidden] { display: none !important; }
 
     .site-header { height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
-    .brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
-    .brand-mark { position: relative; width: 35px; height: 35px; display: block; overflow: visible; border: 1px solid #0e5fa8; background: #0e5fa8; transform: rotate(-4deg); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; color: var(--ink); }
+    .brand-mark { position: relative; width: 35px; height: 35px; padding: 0; display: block; overflow: visible; border: 1px solid #0e5fa8; border-radius: 0; background: #0e5fa8; cursor: pointer; transform: rotate(-4deg); }
     .brand-mark svg { width: 100%; height: 100%; display: block; }
     .brand-spark { position: absolute; z-index: 1; top: 50%; left: 50%; width: 2px; height: 8px; border-radius: 2px; background: var(--spark-color); box-shadow: 0 0 5px var(--spark-color); pointer-events: none; animation: logo-spark-flight .42s cubic-bezier(.15,.7,.25,1) forwards; }
     @keyframes logo-spark-flight {
       from { opacity: 1; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(0) scaleY(1); }
       to { opacity: 0; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(calc(var(--spark-distance) * -1)) scaleY(.2); }
     }
-    .brand-name { font: 800 12px var(--display); letter-spacing: .14em; text-transform: uppercase; }
+    .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-decoration: none; text-transform: uppercase; }
+    .brand-name:hover { color: var(--green); }
     .header-right, .header-links { display: flex; align-items: center; gap: 25px; }
     .header-links a, .admin-open { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
     .header-links a:hover { color: var(--green); }
@@ -229,8 +230,8 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="./" aria-label="Thayer Creations home">
-      <span class="brand-mark" aria-hidden="true">
+    <div class="brand">
+      <button class="brand-mark" type="button" aria-label="Sparks; double-click to open Trace Runner">
         <svg viewBox="0 0 64 64" focusable="false">
           <g fill="none" stroke="#073f70" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" opacity=".65">
             <path d="M8 31h6v8h5M12 57v-5h11v-4M32 8v5h7v5h4M59 30h-5v-6M58 53h-9v4h-5M7 22h6v4h4M6 43h8v-3h3M23 7v5h5v3M31 57v-6h4v-4M40 57v-6h-3v-3M57 10h-7v4h-4M58 34h-3v-3M6 56h6v-5h3M47 58v-4h4v-2"/>
@@ -243,9 +244,9 @@
             <circle cx="53" cy="19" r="4"/><circle cx="53" cy="45" r="4"/>
           </g>
         </svg>
-      </span>
-      <span class="brand-name">Thayer Creations</span>
-    </a>
+      </button>
+      <a class="brand-name" href="./index.html">Thayer Creations</a>
+    </div>
     <div class="header-right">
       <nav class="header-links" aria-label="Main navigation">
         <a href="./#projects">Projects</a>
@@ -382,7 +383,7 @@
     </article>
   </main>
 
-  <footer class="site-footer"><span>Thayer Creations · Engineering project journal</span><span>Built, tested, and documented</span></footer>
+  <footer class="site-footer"><span>Thayer Creations · Engineering project journal</span><span>Email me at will@thayercreations.com</span></footer>
 
   <dialog class="login-dialog" id="login-dialog" aria-labelledby="login-heading">
     <div class="login-dialog-header">
