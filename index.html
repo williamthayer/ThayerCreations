@@ -189,10 +189,11 @@
       .detail-layout { grid-template-columns: minmax(0, 1fr) 175px; gap: 30px; }
     }
     @media (max-width: 620px) {
-      .site-header { height: 65px; padding: 0 5%; }
+      .site-header { height: auto; min-height: 65px; padding: 10px 5%; flex-wrap: wrap; row-gap: 8px; }
       .brand-mark { width: 31px; height: 31px; }
       .brand-name { font-size: 10px; }
       .header-right, .header-links { gap: 10px; }
+      .header-right { width: 100%; justify-content: space-between; }
       .header-links a { font-size: 8px; }
       .admin-open { padding: 8px; font-size: 8px; }
       main { padding: 0 5%; }
@@ -251,6 +252,7 @@
       <nav class="header-links" aria-label="Main navigation">
         <a href="./#projects">Projects</a>
         <a href="./links.html">Awesome Links</a>
+        <a href="./quick-tools.html">Quick tools</a>
       </nav>
       <button class="admin-open" id="admin-open" type="button">Admin sign in</button>
     </div>

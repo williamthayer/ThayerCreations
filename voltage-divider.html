@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Calculate voltage divider outputs, resistor values, and percentage drop.">
+  <title>Voltage Divider — Thayer Creations</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%230e5fa8'/%3E%3Cpath d='M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10' fill='none' stroke='%23a9e3ff' stroke-linecap='round' stroke-linejoin='round' stroke-width='4.5'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f3ee;
+      --surface: #fff;
+      --ink: #1d2723;
+      --muted: #68716b;
+      --line: #d8ddd6;
+      --green: #315a47;
+      --green-dark: #234535;
+      --sans: "DM Sans", sans-serif;
+      --display: Manrope, sans-serif;
+      --mono: "DM Mono", monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    a { color: inherit; }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    button, input, select { font: inherit; }
+    .site-header { min-height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 35px; height: 35px; display: block; border: 1px solid #0e5fa8; background: #0e5fa8; transform: rotate(-4deg); }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-decoration: none; text-transform: uppercase; }
+    .header-links { display: flex; align-items: center; gap: 25px; }
+    .header-links a { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .header-links a:hover, .header-links a[aria-current="page"] { color: var(--green); }
+    main { max-width: 1120px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 0 6.2%; }
+    .masthead { padding: 67px 0 34px; }
+    .eyebrow { margin: 0 0 14px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 clamp(42px, 7vw, 76px)/1 var(--display); letter-spacing: -.075em; }
+    .intro { max-width: 600px; margin: 15px 0 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .back-link { display: inline-block; margin-bottom: 25px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
+    .back-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .calculator { margin-bottom: 80px; padding: clamp(20px, 4vw, 38px); border: 1px solid var(--line); background: var(--surface); }
+    .calculator-heading { margin-bottom: 25px; }
+    .calculator-heading h2 { margin: 0; font: 600 24px var(--display); letter-spacing: -.04em; }
+    .calculator-heading p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .form-field { min-width: 0; display: grid; align-content: start; gap: 7px; color: var(--muted); font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    .form-field input, .form-field select { width: 100%; min-height: 43px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); font: 13px var(--sans); letter-spacing: normal; text-transform: none; }
+    .form-field input::placeholder { color: #9da49e; }
+    .form-field input:disabled { background: #eceee9; color: #879088; cursor: not-allowed; }
+    .unit-controls { margin: 0 0 19px; display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+    .series-field, .unit-field { width: min(250px, 100%); flex: 0 1 250px; }
+    .input-voltage-field { grid-column: 1 / -1; }
+    .input-voltage-control { width: min(500px, 100%); display: flex; align-items: end; gap: 10px; }
+    .input-voltage-control input { width: 0; flex: 1; }
+    .resistor-control { display: flex; min-width: 0; }
+    .resistor-control input { width: 0; flex: 1; appearance: textfield; -moz-appearance: textfield; }
+    .resistor-control input::-webkit-inner-spin-button, .resistor-control input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+    .resistor-arrows { display: flex; flex-direction: column; }
+    .resistor-step { width: 35px; min-height: 21px; padding: 0; border: 1px solid var(--line); background: #fafbf8; color: var(--green); cursor: pointer; font: 11px/1 var(--mono); }
+    .resistor-step + .resistor-step { border-top: 0; }
+    .resistor-step:hover:not(:disabled) { background: #e9ece6; }
+    .resistor-step:disabled { color: #a4aaa4; cursor: not-allowed; }
+    .field-help { color: var(--muted); font: 11px/1.5 var(--sans); letter-spacing: normal; text-transform: none; }
+    .form-actions { margin-top: 23px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .primary-button, .secondary-button { min-height: 41px; padding: 10px 14px; border: 1px solid var(--green); cursor: pointer; font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .primary-button { background: var(--green); color: #fff; }
+    .primary-button:hover { background: var(--green-dark); }
+    .secondary-button { background: transparent; color: var(--green); }
+    .secondary-button:hover { background: #f4f7f2; }
+    .status { min-height: 20px; margin: 16px 0 0; color: var(--green); font-size: 12px; line-height: 1.6; }
+    .status[data-error="true"] { color: #a53d32; }
+    .formula { margin: 24px 0 0; padding-top: 17px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.7; }
+    .formula code { color: var(--ink); font: 11px var(--mono); }
+    .results { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+    .results-heading { margin: 0 0 11px; font: 600 18px var(--display); letter-spacing: -.03em; }
+    .result-text { width: 100%; min-height: 143px; padding: 12px; border: 1px solid var(--line); border-radius: 0; background: #fafbf8; color: var(--ink); font: 12px/1.7 var(--mono); resize: vertical; }
+    .copy-button { margin-top: 10px; }
+    .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    @media (max-width: 620px) {
+      .site-header { min-height: 65px; padding: 10px 5%; flex-wrap: wrap; gap: 10px; }
+      .brand-mark { width: 31px; height: 31px; }
+      .brand-name { font-size: 10px; }
+      .header-links { gap: 10px; }
+      .header-links a { font-size: 8px; }
+      main { padding: 0 5%; }
+      .masthead { padding: 52px 0 28px; }
+      .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+      .unit-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: 10px; }
+      .series-field, .unit-field { width: 100%; }
+      .calculator { margin-bottom: 60px; }
+      .site-footer { padding: 17px 5%; font-size: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <a class="brand-mark" href="./index.html" aria-label="Thayer Creations home">
+        <svg viewBox="0 0 64 64" focusable="false"><path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10" fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"/></svg>
+      </a>
+      <a class="brand-name" href="./index.html">Thayer Creations</a>
+    </div>
+    <nav class="header-links" aria-label="Main navigation">
+      <a href="./#projects">Projects</a>
+      <a href="./links.html">Awesome Links</a>
+      <a href="./quick-tools.html" aria-current="page">Quick tools</a>
+    </nav>
+  </header>
+  <main>
+    <section class="masthead" aria-labelledby="page-title">
+      <a class="back-link" href="./quick-tools.html">← All quick tools</a>
+      <p class="eyebrow">Quick tools · Electronics</p>
+      <h1 id="page-title">Voltage Divider</h1>
+      <p class="intro">Enter any three of the source voltage, resistor values, and output voltage (or percentage drop) to solve the divider. Resistors default to kΩ.</p>
+    </section>
+    <section class="calculator" aria-labelledby="calculator-title">
+      <div class="calculator-heading">
+        <h2 id="calculator-title">Divider calculator</h2>
+        <p>Enter the known values and calculate. Output voltage and percentage drop describe the same target, so filling one dims the other. Resistor tolerance is applied independently to R1 and R2 for worst-case output bounds.</p>
+      </div>
+      <form id="divider-form" novalidate>
+        <div class="unit-controls">
+          <label class="form-field series-field" for="common-series">
+            Common resistor series
+            <select id="common-series">
+              <option value="E3">E3</option>
+              <option value="E6" selected>E6</option>
+              <option value="E12">E12</option>
+            </select>
+          </label>
+          <label class="form-field unit-field" for="resistor-unit">
+            Resistor units
+            <select id="resistor-unit">
+              <option value="1">Ω (ohms)</option>
+              <option value="1000" selected>kΩ (kilo-ohms)</option>
+              <option value="1000000">MΩ (mega-ohms)</option>
+            </select>
+          </label>
+          <label class="form-field unit-field" for="resistor-tolerance">
+            Resistor tolerance
+            <select id="resistor-tolerance">
+              <option value="1">±1%</option>
+              <option value="2">±2%</option>
+              <option value="5" selected>±5%</option>
+              <option value="10">±10%</option>
+              <option value="20">±20%</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-grid">
+          <div class="form-field input-voltage-field">
+            <label for="input-voltage">Input voltage (V)</label>
+            <div class="input-voltage-control">
+              <input id="input-voltage" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 12">
+              <button class="secondary-button" id="reset-calculator" type="button">Reset</button>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="resistor-one">R1</label>
+            <div class="resistor-control">
+              <input id="resistor-one" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 10">
+              <span class="resistor-arrows">
+                <button class="resistor-step" type="button" data-resistor-step="r1" data-direction="1" aria-label="Next common value for R1" title="Next common value">↑</button>
+                <button class="resistor-step" type="button" data-resistor-step="r1" data-direction="-1" aria-label="Previous common value for R1" title="Previous common value">↓</button>
+              </span>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="resistor-two">R2</label>
+            <div class="resistor-control">
+              <input id="resistor-two" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 10">
+              <span class="resistor-arrows">
+                <button class="resistor-step" type="button" data-resistor-step="r2" data-direction="1" aria-label="Next common value for R2" title="Next common value">↑</button>
+                <button class="resistor-step" type="button" data-resistor-step="r2" data-direction="-1" aria-label="Previous common value for R2" title="Previous common value">↓</button>
+              </span>
+            </div>
+          </div>
+          <label class="form-field" for="output-voltage">
+            Output voltage (V)
+            <input id="output-voltage" type="number" min="0" step="any" inputmode="decimal" placeholder="Calculated or enter a target">
+          </label>
+          <label class="form-field" for="percentage-drop">
+            Percentage drop (%)
+            <input id="percentage-drop" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="Calculated or enter a target">
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="primary-button" type="submit">Calculate</button>
+          <button class="secondary-button" id="common-resistors" type="button">Use common resistors</button>
+        </div>
+        <p class="status" id="calculator-status" role="status" aria-live="polite"></p>
+        <section class="results" id="result-panel" aria-labelledby="results-heading" hidden>
+          <h3 class="results-heading" id="results-heading">Copyable results</h3>
+          <textarea class="result-text" id="result-text" rows="6" readonly aria-label="Voltage divider calculation results"></textarea>
+          <button class="secondary-button copy-button" id="copy-results" type="button">Copy results</button>
+        </section>
+      </form>
+      <p class="formula">For a standard divider, <code>Vout = Vin × R2 / (R1 + R2)</code>. Choose E3, E6, or E12 when rounding to common resistor values; E6 is selected by default.</p>
+    </section>
+  </main>
+  <footer class="site-footer"><span>Thayer Creations · A field guide for makers</span><span>Keep making</span></footer>
+  <script>
+    (() => {
+      const form = document.getElementById('divider-form');
+      const status = document.getElementById('calculator-status');
+      const unit = document.getElementById('resistor-unit');
+      const resistorTolerance = document.getElementById('resistor-tolerance');
+      const commonSeries = document.getElementById('common-series');
+      const resultPanel = document.getElementById('result-panel');
+      const resultText = document.getElementById('result-text');
+      const inputs = {
+        inputVoltage: document.getElementById('input-voltage'),
+        r1: document.getElementById('resistor-one'),
+        r2: document.getElementById('resistor-two'),
+        output: document.getElementById('output-voltage'),
+        drop: document.getElementById('percentage-drop')
+      };
+      const generated = new Set();
+      let targetMode = null;
+      const resistorFields = [inputs.r1, inputs.r2];
+      const resistorStepButtons = [...document.querySelectorAll('[data-resistor-step]')];
+      const seriesValues = {
+        E3: [1, 2.2, 4.7],
+        E6: [1, 1.5, 2.2, 3.3, 4.7, 6.8],
+        E12: [1, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2]
+      };
+
+      function valueOf(field) {
+        if (field.value.trim() === '') return null;
+        const value = Number(field.value);
+        return Number.isFinite(value) ? value : NaN;
+      }
+
+      function format(value) {
+        return value.toFixed(2);
+      }
+
+      function valuesMatchRounded(left, right) {
+        return format(left) === format(right);
+      }
+
+      function clearGeneratedTargets() {
+        for (const id of ['output', 'drop']) {
+          if (generated.has(id)) inputs[id].value = '';
+          generated.delete(id);
+        }
+      }
+
+      function updateTargetState() {
+        const hasR1 = inputs.r1.value.trim() !== '';
+        const hasR2 = inputs.r2.value.trim() !== '';
+        const hasBothResistors = hasR1 && hasR2;
+        const hasOutputTarget = inputs.output.value.trim() !== '' || inputs.drop.value.trim() !== '';
+        const fixedResistor = hasOutputTarget && hasR1 !== hasR2
+          ? (hasR1 ? inputs.r2 : inputs.r1)
+          : null;
+
+        inputs.output.disabled = hasBothResistors || targetMode === 'drop';
+        inputs.drop.disabled = hasBothResistors || targetMode === 'output';
+        inputs.r1.disabled = fixedResistor === inputs.r1;
+        inputs.r2.disabled = fixedResistor === inputs.r2;
+        for (const button of resistorStepButtons) {
+          button.disabled = inputs[button.dataset.resistorStep].disabled;
+        }
+      }
+      updateTargetState();
+
+      function setStatus(message, isError) {
+        status.textContent = message;
+        status.dataset.error = String(isError);
+      }
+
+      function clearResults() {
+        resultPanel.hidden = true;
+        resultText.value = '';
+      }
+
+      function buildResultText(output, drop, toleranceResults) {
+        const resistorUnit = unit.value === '1000000' ? 'MΩ' : unit.value === '1000' ? 'kΩ' : 'Ω';
+        const resistorMultiplier = Number(unit.value);
+        const matchesSeries = resistorFields.every((field) =>
+          Math.abs(nearestCommon(Number(field.value) * resistorMultiplier, commonSeries.value) - Number(field.value) * resistorMultiplier)
+          <= Math.max(1, Number(field.value) * resistorMultiplier) * 1e-9
+        );
+        return [
+          `Input voltage: ${format(Number(inputs.inputVoltage.value))} V`,
+          `R1: ${format(Number(inputs.r1.value))} ${resistorUnit}`,
+          `R2: ${format(Number(inputs.r2.value))} ${resistorUnit}`,
+          `Output voltage: ${format(output)} V`,
+          `Percentage drop: ${format(drop)}%`,
+          `Resistor tolerance: ±${format(Number(resistorTolerance.value))}%`,
+          `Output tolerance range: ${format(toleranceResults.minimum)} to ${format(toleranceResults.maximum)} V`,
+          `Output deviation: -${format(toleranceResults.lowerPercent)}% / +${format(toleranceResults.upperPercent)}%`,
+          `E-series: ${matchesSeries ? commonSeries.value : 'N/A'}`
+        ].join('\n');
+      }
+
+      function parseCircuitValues() {
+        const multiplier = Number(unit.value);
+        const raw = {
+          inputVoltage: valueOf(inputs.inputVoltage),
+          r1: valueOf(inputs.r1),
+          r2: valueOf(inputs.r2),
+          output: valueOf(inputs.output),
+          drop: valueOf(inputs.drop)
+        };
+        for (const [name, value] of Object.entries(raw)) {
+          if (Number.isNaN(value)) throw new Error('Enter valid numbers in each filled field.');
+          if (value !== null && value < 0) throw new Error('Values cannot be negative.');
+          if (['r1', 'r2'].includes(name) && value === 0) throw new Error('Resistor values must be greater than zero.');
+        }
+        if (raw.inputVoltage === 0) throw new Error('Input voltage must be greater than zero.');
+        if (raw.drop !== null && raw.drop >= 100) throw new Error('Percentage drop must be less than 100%.');
+        return {
+          ...raw,
+          r1: raw.r1 === null ? null : raw.r1 * multiplier,
+          r2: raw.r2 === null ? null : raw.r2 * multiplier
+        };
+      }
+
+      function calculate() {
+        clearResults();
+        let values;
+        try {
+          values = parseCircuitValues();
+          const missing = ['inputVoltage', 'r1', 'r2'].filter((key) => values[key] === null);
+          let output = generated.has('output') ? null : values.output;
+          const targetDrop = generated.has('drop') ? null : values.drop;
+          if (targetDrop !== null) {
+            const fromDrop = values.inputVoltage === null ? null : values.inputVoltage * (1 - targetDrop / 100);
+            if (output !== null && fromDrop !== null && !valuesMatchRounded(output, fromDrop)) {
+              throw new Error('Output voltage and percentage drop do not agree.');
+            }
+            if (output === null) output = fromDrop;
+          }
+
+          if (missing.length === 0) {
+            if (values.inputVoltage === null || values.r1 === null || values.r2 === null) throw new Error('Enter input voltage and both resistor values.');
+            if (values.inputVoltage <= 0) throw new Error('Input voltage must be greater than zero.');
+            const calculatedOutput = values.inputVoltage * values.r2 / (values.r1 + values.r2);
+            if (output !== null && !valuesMatchRounded(output, calculatedOutput)) {
+              throw new Error('Those resistor values produce a different output voltage. Check the target or resistor values.');
+            }
+            output = calculatedOutput;
+          } else if (missing.length === 1 && output !== null) {
+            if (values.inputVoltage !== null && (output <= 0 || output >= values.inputVoltage)) {
+              throw new Error('Output voltage must be greater than zero and less than input voltage.');
+            }
+            if (values.inputVoltage === null && values.r1 !== null && values.r2 !== null) {
+              values.inputVoltage = output * (values.r1 + values.r2) / values.r2;
+            } else if (values.r1 === null && values.inputVoltage !== null && values.r2 !== null) {
+              values.r1 = values.r2 * (values.inputVoltage / output - 1);
+            } else if (values.r2 === null && values.inputVoltage !== null && values.r1 !== null) {
+              values.r2 = values.r1 * output / (values.inputVoltage - output);
+            }
+            if (values.inputVoltage === null || values.r1 === null || values.r2 === null) {
+              throw new Error('Enter any three of input voltage, R1, R2, and an output target.');
+            }
+            if (values.inputVoltage <= 0 || values.r1 <= 0 || values.r2 <= 0) {
+              throw new Error('The target would require a zero or negative input or resistor value.');
+            }
+            output = values.inputVoltage * values.r2 / (values.r1 + values.r2);
+          } else {
+            throw new Error('Enter any three of input voltage, R1, R2, and an output target.');
+          }
+
+          if (output <= 0 || output >= values.inputVoltage) {
+            throw new Error('Output voltage must be greater than zero and less than input voltage.');
+          }
+          const drop = (values.inputVoltage - output) / values.inputVoltage * 100;
+          const tolerance = Number(resistorTolerance.value) / 100;
+          const r1Low = values.r1 * (1 - tolerance);
+          const r1High = values.r1 * (1 + tolerance);
+          const r2Low = values.r2 * (1 - tolerance);
+          const r2High = values.r2 * (1 + tolerance);
+          const toleranceResults = {
+            minimum: values.inputVoltage * r2Low / (r1High + r2Low),
+            maximum: values.inputVoltage * r2High / (r1Low + r2High)
+          };
+          toleranceResults.lowerPercent = (output - toleranceResults.minimum) / output * 100;
+          toleranceResults.upperPercent = (toleranceResults.maximum - output) / output * 100;
+          const multiplier = Number(unit.value);
+          for (const key of missing) {
+            inputs[key].value = format(values[key] / (key === 'inputVoltage' ? 1 : multiplier));
+          }
+          if (inputs.output.value.trim() === '' || generated.has('output')) {
+            inputs.output.value = format(output);
+            generated.add('output');
+          }
+          if (inputs.drop.value.trim() === '' || generated.has('drop')) {
+            inputs.drop.value = format(drop);
+            generated.add('drop');
+          }
+          updateTargetState();
+          resultText.value = buildResultText(output, drop, toleranceResults);
+          resultPanel.hidden = false;
+          setStatus('Calculation complete. Results are ready to copy.', false);
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+      }
+
+      function commonCandidates(value, selectedSeries) {
+        const decade = Math.floor(Math.log10(value));
+        const candidates = [];
+        for (let exponent = decade - 1; exponent <= decade + 1; exponent += 1) {
+          for (const number of seriesValues[selectedSeries]) {
+            const candidate = number * (10 ** exponent);
+            if (Number.isFinite(candidate) && candidate > 0) candidates.push(candidate);
+          }
+        }
+        return candidates.sort((a, b) => a - b);
+      }
+
+      function nearestCommon(value, selectedSeries) {
+        const candidates = commonCandidates(value, selectedSeries);
+        let nearest = candidates[0];
+        for (const candidate of candidates) {
+          const distance = Math.abs(candidate - value);
+          const nearestDistance = Math.abs(nearest - value);
+          if (distance < nearestDistance || (distance === nearestDistance && candidate > nearest)) {
+            nearest = candidate;
+          }
+        }
+        return nearest;
+      }
+
+      function adjacentCommon(value, selectedSeries, direction) {
+        const candidates = commonCandidates(value, selectedSeries);
+        const tolerance = Math.abs(value) * 1e-12;
+        if (direction > 0) {
+          return candidates.find((candidate) => candidate > value + tolerance) || value;
+        }
+        for (let index = candidates.length - 1; index >= 0; index -= 1) {
+          if (candidates[index] < value - tolerance) return candidates[index];
+        }
+        return value;
+      }
+
+      function canCalculateFromCurrentInputs() {
+        const missing = ['inputVoltage', 'r1', 'r2'].filter((key) => inputs[key].value.trim() === '');
+        const hasOutputTarget = inputs.output.value.trim() !== '';
+        const hasDropTarget = inputs.drop.value.trim() !== '';
+        if (missing.length === 0) return true;
+        if (missing.length !== 1) return false;
+        if (missing[0] === 'inputVoltage') return hasOutputTarget;
+        return hasOutputTarget || (hasDropTarget && inputs.inputVoltage.value.trim() !== '');
+      }
+
+      function stepResistor(field, direction) {
+        const current = valueOf(field);
+        const multiplier = Number(unit.value);
+        const next = current !== null && Number.isFinite(current) && current > 0
+          ? adjacentCommon(current * multiplier, commonSeries.value, direction) / multiplier
+          : direction > 0
+            ? 1
+            : adjacentCommon(multiplier, commonSeries.value, direction) / multiplier;
+        field.value = format(next);
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        if (inputs.inputVoltage.value.trim() !== '' && inputs.r1.value.trim() !== '' && inputs.r2.value.trim() !== '') {
+          inputs.output.value = '';
+          inputs.drop.value = '';
+          generated.clear();
+          targetMode = null;
+          updateTargetState();
+        }
+        if (canCalculateFromCurrentInputs()) calculate();
+      }
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        calculate();
+      });
+
+      for (const [key, field] of [['output', inputs.output], ['drop', inputs.drop]]) {
+        field.addEventListener('input', () => {
+          clearResults();
+          generated.delete(key);
+          targetMode = field.value.trim() === '' ? null : key;
+          const other = key === 'output' ? 'drop' : 'output';
+          if (field.value.trim() !== '' && generated.has(other)) {
+            inputs[other].value = '';
+            generated.delete(other);
+          }
+          if (field.value.trim() === '') clearGeneratedTargets();
+          updateTargetState();
+          setStatus('', false);
+        });
+      }
+
+      for (const field of [inputs.inputVoltage, ...resistorFields]) {
+        field.addEventListener('input', () => {
+          clearResults();
+          clearGeneratedTargets();
+          targetMode = inputs.drop.value.trim() !== '' ? 'drop' : (inputs.output.value.trim() !== '' ? 'output' : null);
+          updateTargetState();
+          setStatus('', false);
+        });
+      }
+
+      for (const button of resistorStepButtons) {
+        button.addEventListener('click', () => {
+          const field = inputs[button.dataset.resistorStep];
+          stepResistor(field, Number(button.dataset.direction));
+          field.focus();
+        });
+      }
+
+      for (const field of resistorFields) {
+        field.addEventListener('keydown', (event) => {
+          if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+          event.preventDefault();
+          stepResistor(field, event.key === 'ArrowUp' ? 1 : -1);
+        });
+      }
+
+      unit.addEventListener('change', () => {
+        clearResults();
+        clearGeneratedTargets();
+        setStatus('Resistor units changed. Recalculate to update the results.', false);
+      });
+
+      resistorTolerance.addEventListener('change', () => {
+        clearResults();
+        setStatus('Resistor tolerance changed. Recalculate to update the results.', false);
+      });
+
+      commonSeries.addEventListener('change', () => {
+        clearResults();
+        setStatus('Common resistor series changed. Recalculate to update the results.', false);
+      });
+
+      document.getElementById('reset-calculator').addEventListener('click', () => {
+        for (const field of Object.values(inputs)) field.value = '';
+        generated.clear();
+        targetMode = null;
+        clearResults();
+        updateTargetState();
+        setStatus('', false);
+      });
+
+      document.getElementById('copy-results').addEventListener('click', async () => {
+        if (!resultText.value) return;
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+          resultText.focus();
+          resultText.select();
+          setStatus('Clipboard access is unavailable. Results are selected; press Ctrl+C to copy.', false);
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(resultText.value);
+          setStatus('Results copied to clipboard.', false);
+        } catch (error) {
+          resultText.focus();
+          resultText.select();
+          setStatus('Clipboard access was blocked. Results are selected; press Ctrl+C to copy.', false);
+        }
+      });
+
+      document.getElementById('common-resistors').addEventListener('click', () => {
+        const multiplier = Number(unit.value);
+        const values = resistorFields.map(valueOf);
+        if (values.some((value) => value === null || !Number.isFinite(value) || value <= 0)) {
+          setStatus('Enter positive values for both R1 and R2 before choosing common resistors.', true);
+          return;
+        }
+        for (let index = 0; index < resistorFields.length; index += 1) {
+          resistorFields[index].value = format(nearestCommon(values[index] * multiplier, commonSeries.value) / multiplier);
+        }
+        clearGeneratedTargets();
+        inputs.output.value = '';
+        inputs.drop.value = '';
+        targetMode = null;
+        updateTargetState();
+        calculate();
+      });
+    })();
+  </script>
+</body>
+</html>
