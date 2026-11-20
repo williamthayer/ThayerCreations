@@ -208,16 +208,12 @@
   }
 
   function updateWakeLockToggle() {
-    wakeLockToggle.checked = keepScreenAwake;
+    wakeLockToggle.setAttribute('aria-checked', String(keepScreenAwake));
   }
 
   async function requestScreenWakeLock() {
     if (!keepScreenAwake || state.stopped || activeView.hidden) return;
     if (document.visibilityState !== 'visible') return;
-    if (!document.hasFocus()) {
-      setStatus(wakeLockStatus, 'Bring this page to the foreground to keep the screen awake.');
-      return;
-    }
     if (screenWakeLock || wakeLockRequestPending) return;
     if (!navigator.wakeLock || typeof navigator.wakeLock.request !== 'function') {
       keepScreenAwake = false;
@@ -255,8 +251,8 @@
           updateWakeLockToggle();
           const guidance = location.protocol === 'file:'
             ? ' Screen wake lock is blocked on local file pages; open Chat Share over HTTPS.'
-            : ' Check whether your browser allows screen wake locks for this site.';
-          setStatus(wakeLockStatus, `Could not keep the screen awake: ${error.message}.${guidance}`, true);
+            : ' Check that power saving is off and this page is visible.';
+          setStatus(wakeLockStatus, `Could not keep the screen awake (${error.name}): ${error.message}.${guidance}`, true);
         } else {
           setStatus(wakeLockStatus, 'Screen wake lock pauses while this page is hidden and resumes when you return.');
         }
@@ -1021,8 +1017,8 @@
   document.querySelector('#create-room').addEventListener('click', startHostRoom);
   document.querySelector('#join-form').addEventListener('submit', joinRoom);
   document.querySelector('#leave-room').addEventListener('click', stopRoom);
-  wakeLockToggle.addEventListener('change', () => {
-    setScreenAwake(wakeLockToggle.checked);
+  wakeLockToggle.addEventListener('click', () => {
+    setScreenAwake(!keepScreenAwake);
   });
   document.addEventListener('visibilitychange', () => {
     if (!keepScreenAwake) return;
