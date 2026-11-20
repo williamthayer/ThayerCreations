@@ -487,7 +487,7 @@
       const timeout = setTimeout(() => {
         if (settled) return;
         settled = true;
-        reject(new Error('Timed out connecting to the room service. Please try again.'));
+        reject(new Error('Timed out connecting to the room service. Refresh this page to retry; this tab will restore the room.'));
       }, 15000);
       channel.subscribe((status) => {
         if (status === 'SUBSCRIBED' && !settled) {
@@ -497,7 +497,7 @@
         } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status) && !settled) {
           settled = true;
           clearTimeout(timeout);
-          reject(new Error(`Room service connection failed (${status}).`));
+          reject(new Error(`Room service connection failed (${status}). Refresh this page to retry; this tab will restore the room.`));
         }
       });
     });
@@ -526,7 +526,7 @@
       if (state.peer !== peer || state.stopped) return;
       if (peer.connectionState === 'failed') {
         disablePeerActions();
-        setConnectionStatus('Could not establish a direct connection. Check your network connection and make sure both peers are still in the room.', true);
+        setConnectionStatus('Could not establish a direct connection. Check your network connection and make sure both peers are still in the room. If automatic recovery does not work, refresh both pages in their current tabs to rejoin this room.', true);
         if (state.role === 'host' && state.remotePeerId) {
           startHostNegotiation(state.remotePeerId).catch((error) => {
             setConnectionStatus(`Could not restart the connection: ${error.message}`, true);
@@ -537,7 +537,7 @@
         }
       } else if (peer.connectionState === 'disconnected') {
         disablePeerActions();
-        setConnectionStatus('Connection interrupted. Waiting for the peer to reconnect.', true);
+        setConnectionStatus('Connection interrupted. Waiting for the peer to reconnect. If it stays interrupted, refresh both pages in their current tabs to rejoin this room.', true);
       } else if (peer.connectionState === 'connected') {
         if (state.dataChannel?.readyState === 'open') {
           markPeerConnected();
@@ -607,7 +607,7 @@
     channel.onclose = () => {
       if (state.dataChannel !== channel || state.stopped) return;
       disablePeerActions();
-      setConnectionStatus('The peer connection closed.', true);
+      setConnectionStatus('The peer connection closed. If it does not reconnect, refresh both pages in their current tabs to rejoin this room.', true);
       if (state.role === 'guest') {
         requestHostJoin(true);
         ensureJoinRetries();
@@ -1160,7 +1160,7 @@
       pending.reject = reject;
       pending.timeout = setTimeout(() => {
         if (state.pendingAck === pending) state.pendingAck = null;
-        reject(new Error('The receiver stopped acknowledging file data.'));
+        reject(new Error('The receiver stopped acknowledging file data. If the connection does not recover, refresh both pages in their current tabs and resend the file.'));
       }, 30000);
     });
   }
@@ -1229,7 +1229,7 @@
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         channel.removeEventListener('bufferedamountlow', onLow);
-        reject(new Error('File transfer paused because the connection is not responding.'));
+        reject(new Error('File transfer paused because the connection is not responding. If it stays paused, refresh both pages in their current tabs and resend the file.'));
       }, 30000);
       function onLow() {
         clearTimeout(timeout);
@@ -1381,7 +1381,7 @@
       transfer.resolve = resolve;
       transfer.timeout = setTimeout(() => {
         if (state.pendingTransfer === transfer) state.pendingTransfer = null;
-        reject(new Error('The file offer expired because the peer did not respond.'));
+        reject(new Error('The file offer expired because the peer did not respond. Check the peer connection, then refresh both pages in their current tabs and retry the file.'));
       }, 5 * 60 * 1000);
     });
     state.pendingTransfer = transfer;
@@ -1541,7 +1541,7 @@
       setConnectionStatus('Waiting for the host to connect…');
       state.connectTimeout = setTimeout(() => {
         if (state.dataChannel?.readyState !== 'open') {
-          setConnectionStatus('Still waiting for the host. Check that the host reopened this room with the same code.', true);
+          setConnectionStatus('Still waiting for the host. Check that the host reopened this room with the same code. If both pages are open and it remains stuck, refresh both pages in their current tabs.', true);
         }
       }, 60000);
     } catch (error) {
