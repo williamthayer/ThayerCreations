@@ -842,6 +842,8 @@
     state.stopped = false;
     state.role = 'guest';
     showActiveView('guest');
+    inviteBox.hidden = false;
+    inviteCode.textContent = code;
     setConnectionStatus('Deriving the room and encryption key…');
     try {
       const credentials = await deriveRoomCredentials(code);
