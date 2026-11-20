@@ -64,6 +64,8 @@
   const copyCodeButton = document.querySelector('#copy-code');
   const wakeLockToggle = document.querySelector('#wake-lock-toggle');
   const wakeLockStatus = document.querySelector('#wake-lock-status');
+  const notificationsToggle = document.querySelector('#notifications-toggle');
+  const notificationsStatus = document.querySelector('#notifications-status');
   let screenWakeLock = null;
   let keepScreenAwake = false;
   let wakeLockRequestPending = false;
@@ -93,6 +95,8 @@
     peerQueueFiles: [],
     peerQueueTotal: 0,
     pendingQueueCancelRequests: new Map(),
+    notificationsEnabled: false,
+    notificationAudioContext: null,
     pendingTransfer: null,
     pendingAck: null,
     activeOutgoingTransfer: null,
@@ -246,6 +250,122 @@
 
   function updateWakeLockToggle() {
     wakeLockToggle.setAttribute('aria-checked', String(keepScreenAwake));
+  }
+
+  function updateNotificationsToggle() {
+    notificationsToggle.setAttribute('aria-checked', String(state.notificationsEnabled));
+  }
+
+  async function enableNotifications() {
+    if (!('Notification' in window)) {
+      notificationsToggle.disabled = true;
+      setStatus(notificationsStatus, 'This browser does not support desktop notifications.', true);
+      return;
+    }
+
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    let audioError = null;
+    let audioReady = Promise.resolve();
+    if (AudioContextConstructor) {
+      try {
+        if (!state.notificationAudioContext) {
+          state.notificationAudioContext = new AudioContextConstructor();
+        }
+        if (state.notificationAudioContext.state === 'suspended') {
+          audioReady = state.notificationAudioContext.resume().catch((error) => { audioError = error; });
+        }
+      } catch (error) {
+        audioError = error;
+      }
+    }
+
+    let permission = Notification.permission;
+    if (permission === 'default') permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      state.notificationsEnabled = false;
+      updateNotificationsToggle();
+      setStatus(notificationsStatus, 'Notifications are blocked. Allow them in this site’s browser permissions to turn this on.', true);
+      return;
+    }
+
+    state.notificationsEnabled = true;
+    updateNotificationsToggle();
+    if (!AudioContextConstructor) {
+      setStatus(notificationsStatus, 'Notifications are on, but this browser does not support the ding sound.', true);
+      return;
+    }
+    await audioReady;
+    if (audioError) {
+      setStatus(notificationsStatus, `Notifications are on, but the ding sound could not be enabled: ${audioError.message}`, true);
+    } else {
+      setStatus(notificationsStatus, 'Notifications and the ding sound are on for new messages and completed files.');
+    }
+  }
+
+  function disableNotifications() {
+    state.notificationsEnabled = false;
+    updateNotificationsToggle();
+    const audioContext = state.notificationAudioContext;
+    state.notificationAudioContext = null;
+    if (audioContext) {
+      audioContext.close().catch((error) => {
+        setStatus(notificationsStatus, `Could not stop the notification sound: ${error.message}`, true);
+      });
+    }
+    setStatus(notificationsStatus, 'Notifications are off.');
+  }
+
+  async function playNotificationDing() {
+    const audioContext = state.notificationAudioContext;
+    if (!state.notificationsEnabled || !audioContext) return;
+    if (audioContext.state === 'suspended') await audioContext.resume();
+    const tones = [
+      { frequency: 880, start: 0, duration: 0.18, volume: 0.12 },
+      { frequency: 1320, start: 0.1, duration: 0.24, volume: 0.08 }
+    ];
+    tones.forEach((tone) => {
+      const start = audioContext.currentTime + tone.start;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(tone.frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(tone.volume, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + tone.duration);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + tone.duration);
+    });
+  }
+
+  function notifyRoomEvent(title, body) {
+    if (!state.notificationsEnabled) return;
+    playNotificationDing().catch((error) => {
+      setStatus(notificationsStatus, `Could not play the notification ding: ${error.message}`, true);
+    });
+    try {
+      const notification = new Notification(title, {
+        body,
+        icon: './tc-logo.svg',
+        tag: `chat-share-${Date.now()}`
+      });
+      notification.addEventListener('click', () => {
+        window.focus();
+        notification.close();
+      }, { once: true });
+    } catch (error) {
+      setStatus(notificationsStatus, `Could not show the desktop notification: ${error.message}`, true);
+    }
+  }
+
+  function initializeNotifications() {
+    if (!('Notification' in window)) {
+      notificationsToggle.disabled = true;
+      setStatus(notificationsStatus, 'This browser does not support desktop notifications.', true);
+    } else if (Notification.permission === 'denied') {
+      setStatus(notificationsStatus, 'Notifications are blocked. Allow them in this site’s browser permissions to turn this on.');
+    }
   }
 
   async function requestScreenWakeLock() {
@@ -690,6 +810,7 @@
     if (!payload || typeof payload.type !== 'string') return;
     if (payload.type === 'message' && typeof payload.text === 'string' && payload.text.length <= 4000) {
       appendChatItem(payload.text);
+      notifyRoomEvent('New message', 'Your peer sent a message.');
     } else if (payload.type === 'file-queue') {
       updatePeerFileQueue(payload);
     } else if (payload.type === 'file-queue-cancel') {
@@ -988,6 +1109,7 @@
       });
     }
     state.incomingFile = null;
+    notifyRoomEvent('File received', `"${file.name}" finished transferring.`);
   }
 
   function safeFileName(name) {
@@ -1305,6 +1427,7 @@
       }
       await sendData({ type: 'file-end', id });
       progressInfo.setStatus('File sent.');
+      notifyRoomEvent('File sent', `"${file.name}" finished transferring.`);
     } catch (error) {
       progressInfo.setStatus(error.message);
       setConnectionStatus(error.message, true);
@@ -1516,6 +1639,17 @@
   wakeLockToggle.addEventListener('click', () => {
     setScreenAwake(!keepScreenAwake);
   });
+  notificationsToggle.addEventListener('click', () => {
+    if (state.notificationsEnabled) {
+      disableNotifications();
+      return;
+    }
+    enableNotifications().catch((error) => {
+      state.notificationsEnabled = false;
+      updateNotificationsToggle();
+      setStatus(notificationsStatus, `Could not enable notifications: ${error.message}`, true);
+    });
+  });
   document.addEventListener('visibilitychange', () => {
     if (!keepScreenAwake) return;
     if (document.visibilityState === 'visible') {
@@ -1585,6 +1719,7 @@
     document.querySelector('#join-room').disabled = true;
   }
   if (!navigator.clipboard) copyCodeButton.disabled = true;
+  initializeNotifications();
   if (config.url && config.anonKey) {
     const savedRoom = restoreRoomSession();
     if (savedRoom) {

@@ -78,6 +78,8 @@
     .wake-lock-switch[aria-checked="true"] .wake-lock-track::before { transform: translateX(20px); }
     .wake-lock-switch:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
     .wake-lock-switch:disabled { opacity: .55; cursor: not-allowed; }
+    .room-preference-toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    @media (max-width: 620px) { .room-preference-toggles { grid-template-columns: 1fr; } }
     .auto-save-box { margin-top: 20px; }
     .chat-shell { margin-top: 22px; border: 1px solid var(--line); background: #fff; }
     .chat-toolbar { min-height: 54px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
@@ -123,7 +125,7 @@
   </style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script defer src="./supabase-config.js"></script>
-  <script defer src="./chat-share.js?v=queue-cancel-eta-2026-11"></script>
+  <script defer src="./chat-share.js?v=notification-ding-2026-11"></script>
   <script defer src="./brand.js"></script>
 </head>
 <body>
@@ -191,11 +193,16 @@
       <p class="connection-status" id="connection-status" role="status" aria-live="polite">Starting connection…</p>
 
       <div class="invite-box wake-lock-box">
-        <h3>Keep screen awake</h3>
+        <h3>Room preferences</h3>
         <p class="invite-help" id="wake-lock-status" role="status" aria-live="polite">Turn this on while chatting or transferring files. It works while this page is visible in supported browsers.</p>
-        <div class="invite-actions">
+        <p class="invite-help" id="notifications-status" role="status" aria-live="polite">Turn on notifications to hear a ding and see alerts for new messages and completed file transfers.</p>
+        <div class="room-preference-toggles">
           <button class="wake-lock-switch" id="wake-lock-toggle" type="button" role="switch" aria-checked="false" aria-describedby="wake-lock-status">
             <span>Keep screen awake</span>
+            <span class="wake-lock-track" aria-hidden="true"></span>
+          </button>
+          <button class="wake-lock-switch" id="notifications-toggle" type="button" role="switch" aria-checked="false" aria-describedby="notifications-status">
+            <span>Notifications</span>
             <span class="wake-lock-track" aria-hidden="true"></span>
           </button>
         </div>
