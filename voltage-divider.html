@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f3ee">
   <meta name="description" content="Calculate voltage divider outputs, resistor values, and percentage drop.">
   <title>Voltage Divider — Thayer Creations</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%230e5fa8'/%3E%3Cpath d='M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10' fill='none' stroke='%23a9e3ff' stroke-linecap='round' stroke-linejoin='round' stroke-width='4.5'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="./tc-logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -31,8 +31,13 @@
     button, input, select { font: inherit; }
     .site-header { min-height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
     .brand { display: inline-flex; align-items: center; gap: 12px; }
-    .brand-mark { width: 35px; height: 35px; display: block; border: 1px solid #0e5fa8; background: #0e5fa8; transform: rotate(-4deg); }
+    .brand-mark { position: relative; width: 35px; height: 35px; padding: 0; display: block; overflow: visible; border: 1px solid #0e5fa8; background: #0e5fa8; cursor: pointer; transform: rotate(-4deg); }
     .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-spark { position: absolute; z-index: 1; top: 50%; left: 50%; width: 2px; height: 8px; border-radius: 2px; background: var(--spark-color); box-shadow: 0 0 5px var(--spark-color); pointer-events: none; animation: logo-spark-flight .42s cubic-bezier(.15,.7,.25,1) forwards; }
+    @keyframes logo-spark-flight {
+      from { opacity: 1; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(0) scaleY(1); }
+      to { opacity: 0; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(calc(var(--spark-distance) * -1)) scaleY(.2); }
+    }
     .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-decoration: none; text-transform: uppercase; }
     .header-links { display: flex; align-items: center; gap: 25px; }
     .header-links a { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
@@ -102,9 +107,20 @@
 <body>
   <header class="site-header">
     <div class="brand">
-      <a class="brand-mark" href="./index.html" aria-label="Thayer Creations home">
-        <svg viewBox="0 0 64 64" focusable="false"><path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10" fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"/></svg>
-      </a>
+      <button class="brand-mark" type="button" aria-label="Sparks; double-click to open Trace Runner">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <g fill="none" stroke="#073f70" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" opacity=".65">
+            <path d="M8 31h6v8h5M12 57v-5h11v-4M32 8v5h7v5h4M59 30h-5v-6M58 53h-9v4h-5M7 22h6v4h4M6 43h8v-3h3M23 7v5h5v3M31 57v-6h4v-4M40 57v-6h-3v-3M57 10h-7v4h-4M58 34h-3v-3M6 56h6v-5h3M47 58v-4h4v-2"/>
+          </g>
+          <g fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5">
+            <path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10"/>
+          </g>
+          <g fill="#e7f7ff">
+            <circle cx="10" cy="17" r="4"/><circle cx="28" cy="17" r="4"/><circle cx="19" cy="49" r="4"/>
+            <circle cx="53" cy="19" r="4"/><circle cx="53" cy="45" r="4"/>
+          </g>
+        </svg>
+      </button>
       <a class="brand-name" href="./index.html">Thayer Creations</a>
     </div>
     <nav class="header-links" aria-label="Main navigation">
@@ -597,5 +613,6 @@
       });
     })();
   </script>
+  <script src="./brand.js"></script>
 </body>
 </html>
