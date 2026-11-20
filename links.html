@@ -234,7 +234,7 @@
     </section>
   </main>
 
-  <footer class="site-footer"><span>Thayer Creations · A field guide for makers</span><span>Keep making</span></footer>
+  <footer class="site-footer"><span>Thayer Creations · A field guide for makers</span><span>Every problem has two outcomes, success or insight</span></footer>
 
   <dialog class="login-dialog" id="login-dialog" aria-labelledby="login-heading">
     <div class="login-dialog-header">
@@ -328,7 +328,7 @@
     function renderLinks() {
       const selectedType = renderTypeOptions();
       const sortedLinks = [...links].sort((a, b) =>
-        a.link_type.localeCompare(b.link_type) || a.title.localeCompare(b.title));
+        a.title.localeCompare(b.title) || a.link_type.localeCompare(b.link_type));
       const visibleLinks = sortedLinks.filter((link) => !selectedType || link.link_type === selectedType);
       linkTable.replaceChildren();
       document.querySelector('#manage-heading').hidden = !isAdmin;
@@ -399,8 +399,8 @@
       const { data, error } = await supabaseClient
         .from('site_links')
         .select('id, title, url, link_type, description, created_at')
-        .order('link_type')
-        .order('title');
+        .order('title')
+        .order('link_type');
       if (error) {
         isLoadingLinks = false;
         setStatus(loadStatus, `Could not load links: ${error.message}`, true);

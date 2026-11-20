@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Create a short room code to share messages and files directly between browsers.">
+  <title>Chat Share — Thayer Creations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f3ee;
+      --surface: #fff;
+      --ink: #1d2723;
+      --muted: #68716b;
+      --line: #d8ddd6;
+      --green: #315a47;
+      --green-dark: #234535;
+      --red: #a53d32;
+      --sans: "DM Sans", sans-serif;
+      --display: Manrope, sans-serif;
+      --mono: "DM Mono", monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    a { color: inherit; }
+    button, input { color: inherit; font: inherit; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    .site-header { min-height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 12px; text-decoration: none; }
+    .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid #0e5fa8; background: #0e5fa8; color: #a9e3ff; font: 700 22px var(--display); transform: rotate(-4deg); }
+    .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-transform: uppercase; }
+    .header-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 18px; }
+    .header-links a { color: var(--muted); font: 9px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .header-links a:hover, .header-links a[aria-current="page"] { color: var(--green); }
+    main { width: min(840px, 100%); min-height: calc(100vh - 150px); margin: 0 auto; padding: 70px 24px 80px; }
+    .eyebrow, .kicker { margin: 0 0 13px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font: 500 clamp(48px, 9vw, 82px)/.98 var(--display); letter-spacing: -.08em; }
+    h1 em { color: var(--green); font-style: normal; }
+    .intro { max-width: 600px; margin: 18px 0 30px; color: var(--muted); font-size: 14px; line-height: 1.75; }
+    .panel { padding: 25px; border: 1px solid var(--line); background: var(--surface); }
+    .panel h2 { margin: 0 0 8px; font: 600 22px var(--display); letter-spacing: -.04em; }
+    .panel-copy { margin: 0 0 18px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .primary-button, .secondary-button { min-height: 40px; padding: 9px 14px; border: 1px solid var(--green); background: var(--green); color: #fff; cursor: pointer; font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .primary-button:hover { background: var(--green-dark); }
+    .secondary-button { background: transparent; color: var(--green); }
+    .secondary-button:hover { border-color: var(--green-dark); color: var(--green-dark); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .field { display: grid; gap: 7px; color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    .field input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 0; background: #fff; font: 14px var(--sans); letter-spacing: normal; text-transform: none; }
+    .field input::placeholder { color: #9da49e; }
+    .join-form { max-width: 380px; display: grid; gap: 13px; }
+    .form-status, .connection-status { min-height: 20px; margin: 12px 0 0; color: var(--green); font-size: 12px; line-height: 1.6; }
+    .form-status[data-error="true"], .connection-status[data-error="true"] { color: var(--red); }
+    .invite-box { margin-top: 20px; padding: 16px; border: 1px solid var(--line); background: #fafbf8; }
+    .invite-box h3 { margin: 0 0 12px; font: 600 15px var(--display); }
+    .invite-value { margin: 0 0 10px; overflow-wrap: anywhere; color: var(--ink); font: 13px/1.6 var(--mono); }
+    .invite-code { font-size: 19px; font-weight: 500; letter-spacing: .03em; }
+    .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .invite-help { margin: 13px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .chat-shell { margin-top: 22px; border: 1px solid var(--line); background: #fff; }
+    .chat-toolbar { min-height: 54px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+    .chat-toolbar strong { font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .chat-log { height: min(48vh, 430px); min-height: 220px; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; list-style: none; }
+    .chat-empty { margin: auto; color: var(--muted); font-size: 12px; text-align: center; }
+    .chat-item { max-width: min(88%, 580px); padding: 10px 12px; border: 1px solid var(--line); background: #fafbf8; overflow-wrap: anywhere; }
+    .chat-item[data-own="true"] { align-self: flex-end; border-color: #c8d6cc; background: #eef4ed; }
+    .chat-item p { margin: 0; white-space: pre-wrap; font-size: 13px; line-height: 1.6; }
+    .chat-meta { display: block; margin-top: 5px; color: var(--muted); font: 9px var(--mono); }
+    .chat-compose { padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 8px; border-top: 1px solid var(--line); }
+    .chat-compose .field { min-width: 0; }
+    .chat-compose input[type="text"] { min-height: 40px; }
+    .file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+    .file-label { min-height: 40px; padding: 11px; display: inline-flex; align-items: center; border: 1px solid var(--line); color: var(--green); cursor: pointer; font: 9px var(--mono); text-transform: uppercase; }
+    .file-label:hover { border-color: var(--green); }
+    .transfer-progress { width: 100%; height: 6px; margin-top: 8px; accent-color: var(--green); }
+    .download-link { display: inline-block; margin-top: 8px; color: var(--green); font: 10px var(--mono); text-underline-offset: 3px; }
+    .security-note { margin: 20px 0 0; padding: 14px 16px; border-left: 2px solid var(--green); background: #e9ece6; color: var(--muted); font-size: 11px; line-height: 1.7; }
+    .security-note strong { color: var(--ink); }
+    .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    @media (max-width: 620px) {
+      .site-header { padding: 10px 5%; align-items: flex-start; flex-direction: column; gap: 12px; }
+      .header-links { justify-content: start; gap: 10px 15px; }
+      .header-links a { font-size: 8px; }
+      main { padding: 55px 5% 65px; }
+      .panel { padding: 19px 15px; }
+      .chat-compose { grid-template-columns: minmax(0, 1fr) auto; }
+      .chat-compose .field { grid-column: 1 / -1; }
+      .chat-compose .primary-button { grid-column: 2; grid-row: 2; }
+      .file-label { grid-column: 1; grid-row: 2; justify-self: start; }
+      .site-footer { padding: 17px 5%; flex-direction: column; align-items: flex-start; font-size: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script defer src="./supabase-config.js"></script>
+  <script defer src="./chat-share.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./index.html">
+      <span class="brand-mark" aria-hidden="true">T</span>
+      <span class="brand-name">Thayer Creations</span>
+    </a>
+    <nav class="header-links" aria-label="Main navigation">
+      <a href="./#projects">Projects</a>
+      <a href="./links.html">Awesome Links</a>
+      <a href="./quick-tools.html">Quick tools</a>
+      <a href="./chat-share.html" aria-current="page">Chat Share</a>
+    </nav>
+  </header>
+
+  <main>
+    <p class="eyebrow">Share chat · Browser to browser</p>
+    <h1 id="page-title">Chat &amp; file<br><em>share.</em></h1>
+    <p class="intro">Create a short code and tell the other person. They open this page on their computer and type the same code to connect. Messages and files travel over an encrypted peer-to-peer connection; nothing is saved or uploaded.</p>
+
+    <section class="panel" id="create-view" aria-labelledby="create-heading">
+      <h2 id="create-heading">Start a share chat</h2>
+      <p class="panel-copy">Generate a one-time code to share verbally or in a separate message. The other person can enter it below on this same page.</p>
+      <button class="primary-button" id="create-room" type="button">Generate code</button>
+      <p class="form-status" id="create-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" id="join-view" aria-labelledby="join-heading">
+      <h2 id="join-heading">Join a room</h2>
+      <p class="panel-copy">Enter the two words and three numbers the other person generated.</p>
+      <form class="join-form" id="join-form">
+        <label class="field" for="join-code">Two words and three numbers
+          <input id="join-code" name="code" type="text" inputmode="text" autocomplete="one-time-code" maxlength="54" placeholder="ember-orbit-482" required>
+        </label>
+        <button class="primary-button" id="join-room" type="submit">Join room</button>
+      </form>
+      <p class="form-status" id="join-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" id="active-view" aria-labelledby="room-heading" hidden>
+      <p class="kicker" id="room-role"></p>
+      <h2 id="room-heading">Share chat</h2>
+      <p class="connection-status" id="connection-status" role="status" aria-live="polite">Starting connection…</p>
+
+      <div class="invite-box" id="invite-box" hidden>
+        <h3>Tell the other person this code</h3>
+        <p class="kicker">Pairing code</p>
+        <p class="invite-value invite-code" id="invite-code"></p>
+        <div class="invite-actions">
+          <button class="secondary-button" id="copy-code" type="button">Copy code</button>
+        </div>
+        <p class="invite-help">The other person opens Chat Share and enters this code. The room closes when you leave this page.</p>
+      </div>
+
+      <div class="chat-shell">
+        <div class="chat-toolbar">
+          <strong>Encrypted conversation</strong>
+          <button class="secondary-button" id="leave-room" type="button">Leave room</button>
+        </div>
+        <div class="chat-log" id="chat-log" role="log" aria-live="polite">
+          <p class="chat-empty" id="chat-empty">Your messages will appear here after the connection is ready.</p>
+        </div>
+        <form class="chat-compose" id="chat-form">
+          <label class="field" for="message-input">Message
+            <input id="message-input" name="message" type="text" maxlength="4000" placeholder="Write a message…" autocomplete="off" disabled>
+          </label>
+          <label class="file-label" for="file-input">Send file</label>
+          <input class="file-input" id="file-input" type="file" disabled>
+          <button class="primary-button" id="send-message" type="submit" disabled>Send</button>
+        </form>
+      </div>
+    </section>
+
+    <p class="security-note"><strong>Security note:</strong> Messages and file chunks use AES-256-GCM encryption, in addition to WebRTC's encrypted connection. The encryption key and room are derived from the code; Supabase sees temporary connection details, not the content. The other peer and signaling service may see network connection metadata. Because this short code has limited strength, use it for quick sharing rather than highly sensitive information. Some networks require a relay; none is configured here.</p>
+  </main>
+
+  <footer class="site-footer"><span>Thayer Creations · Chat Share</span><span>No saved messages or uploaded files</span></footer>
+</body>
+</html>

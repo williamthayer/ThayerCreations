@@ -35,6 +35,12 @@ The **Awesome Links** page is a curated set of maker resources organized by type
 
 The **Quick tools** page links to small engineering utilities. The Voltage Divider calculator solves for a missing input voltage, resistor, or output target; calculated values are rounded to hundredths. Resistor values support Ω, kΩ, and MΩ, with arrow controls that step through the selected E3, E6, or E12 series (E6 is the default). A shared R1/R2 tolerance selection adds worst-case output voltage and deviation bounds to the copyable results. The summary identifies the E-series when both resistor values match, or shows N/A otherwise.
 
+## Chat Share
+
+The **Chat Share** page creates a two-word, three-number room code. The other person opens the page on their computer and types the same code; both browsers derive the room and AES-256-GCM key from it with PBKDF2. Messages and file chunks are additionally carried over WebRTC's encrypted data channel. Supabase Realtime is used only for temporary WebRTC connection signaling; message and file contents are not sent to Supabase or saved.
+
+Both people must keep the page open while chatting or transferring files. Files are limited to 25 MB and are held in browser memory until downloaded. Because the short room code is the only shared secret, this is intended for quick temporary sharing, not highly sensitive information. Direct connections may fail on networks that require a TURN relay; no TURN server is configured. The site must be opened over HTTPS (GitHub Pages already serves it over HTTPS).
+
 ## Trace Runner
 
 Double-click the site logo to open **Trace Runner**, a small circuit puzzle. Rotate each trace clockwise to connect the battery to the LED; use **Reshuffle** to start a new arrangement. Completing the circuit unlocks **Super Ball Adventure**, which embeds the Scratch game player.
