@@ -33,7 +33,6 @@
     'compass', 'dandelion', 'daybreak', 'firefly', 'footpath', 'hammock', 'heather', 'hourglass',
     'marsh', 'oatmeal', 'pavilion', 'rainfall', 'redwood', 'seaspray', 'snowdrop', 'woodland'
   ];
-  const MAX_MEMORY_DOWNLOAD_SIZE = 200 * 1024 * 1024;
   const MAX_BUFFERED_AMOUNT = 1024 * 1024;
   const CHUNK_SIZE = 16 * 1024;
   const FILE_ACK_INTERVAL = 16;
@@ -482,19 +481,17 @@
       return;
     }
     const canChooseSaveFolder = typeof window.showDirectoryPicker === 'function';
-    const canStreamToDisk = Boolean(state.saveDirectoryHandle);
-    if (!canStreamToDisk && payload.size > MAX_MEMORY_DOWNLOAD_SIZE) {
-      const reason = canChooseSaveFolder
-        ? 'This file exceeds 200 MB. Choose a save folder and ask the sender to try again.'
-        : 'This file exceeds 200 MB and this browser cannot save directly to a chosen folder.';
+    if (canChooseSaveFolder && !state.saveDirectoryHandle) {
+      const reason = 'Choose a save folder before the sender tries again.';
       appendChatItem(`Could not automatically accept "${payload.name}": ${reason}`);
       await sendData({ type: 'file-response', id: payload.id, accepted: false, reason });
       return;
     }
+    const canStreamToDisk = Boolean(state.saveDirectoryHandle);
     state.incomingOffer = payload.id;
     const memoryNote = canStreamToDisk
       ? ''
-      : ' This file will be buffered in memory before the browser download.';
+      : ' Files are buffered in memory in this browser, so very large transfers may be limited by available memory.';
     let writable = null;
     let progressInfo = null;
     try {
@@ -928,10 +925,7 @@
   document.querySelector('#join-form').addEventListener('submit', joinRoom);
   document.querySelector('#leave-room').addEventListener('click', stopRoom);
   if (typeof window.showDirectoryPicker === 'function') {
-    setStatus(
-      autoSaveStatus,
-      'Without a folder, files up to 200 MB are automatically accepted and appear as download links. Choose a folder once to stream larger files directly to disk.'
-    );
+    setStatus(autoSaveStatus, 'Choose a folder once for this page session. Incoming files will then be automatically accepted and saved there.');
     autoSaveFolderButton.addEventListener('click', () => {
       chooseAutoSaveFolder().catch((error) => {
         setStatus(autoSaveStatus, `Could not enable auto-save: ${error.message}`, true);
@@ -941,7 +935,7 @@
     autoSaveFolderButton.hidden = true;
     setStatus(
       autoSaveStatus,
-      'Files up to 200 MB are automatically accepted and appear as download links. Larger files require a browser that can save to a chosen folder.'
+      'This browser cannot save directly to a chosen folder. Files will be automatically accepted into memory, so very large transfers may fail if memory runs low.'
     );
   }
   document.querySelector('#chat-form').addEventListener('submit', (event) => {
