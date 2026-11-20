@@ -278,7 +278,7 @@
     };
     peer.onconnectionstatechange = () => {
       if (peer.connectionState === 'failed') {
-        setConnectionStatus('Could not connect directly. This network may require a relay service.', true);
+        setConnectionStatus('Could not establish a direct connection. Check your network connection and make sure both peers are still in the room.', true);
       } else if (peer.connectionState === 'disconnected') {
         setConnectionStatus('Connection interrupted. Waiting for the peer to reconnect.', true);
       } else if (peer.connectionState === 'connected' && state.dataChannel?.readyState !== 'open') {
