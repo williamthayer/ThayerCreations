@@ -59,6 +59,11 @@
   const fileInput = document.querySelector('#file-input');
   const sendButton = document.querySelector('#send-message');
   const copyCodeButton = document.querySelector('#copy-code');
+  const wakeLockToggleButton = document.querySelector('#wake-lock-toggle');
+  const wakeLockStatus = document.querySelector('#wake-lock-status');
+  let screenWakeLock = null;
+  let keepScreenAwake = false;
+  let wakeLockRequestPending = false;
   const state = {
     role: '',
     roomId: '',
@@ -200,6 +205,85 @@
     joinView.hidden = true;
     activeView.hidden = false;
     document.querySelector('#room-role').textContent = role === 'host' ? 'Invite created' : 'Joining an invite';
+    setScreenAwake(true);
+  }
+
+  function updateWakeLockButton() {
+    wakeLockToggleButton.textContent = keepScreenAwake ? 'Allow screen sleep' : 'Keep screen awake';
+    wakeLockToggleButton.setAttribute('aria-pressed', String(keepScreenAwake));
+  }
+
+  async function requestScreenWakeLock() {
+    if (!keepScreenAwake || screenWakeLock || wakeLockRequestPending ||
+        state.stopped || activeView.hidden || document.visibilityState !== 'visible') return;
+    if (!navigator.wakeLock || typeof navigator.wakeLock.request !== 'function') {
+      keepScreenAwake = false;
+      wakeLockToggleButton.disabled = true;
+      updateWakeLockButton();
+      setStatus(wakeLockStatus, 'This browser does not support keeping the screen awake.');
+      return;
+    }
+
+    wakeLockRequestPending = true;
+    try {
+      const lock = await navigator.wakeLock.request('screen');
+      if (!keepScreenAwake || state.stopped || activeView.hidden || document.visibilityState !== 'visible') {
+        await lock.release();
+        return;
+      }
+      screenWakeLock = lock;
+      lock.addEventListener('release', () => {
+        if (screenWakeLock !== lock) return;
+        screenWakeLock = null;
+        if (!keepScreenAwake || state.stopped || activeView.hidden) return;
+        if (document.visibilityState === 'visible') {
+          keepScreenAwake = false;
+          updateWakeLockButton();
+          setStatus(wakeLockStatus, 'The browser released the screen wake lock. Tap “Keep screen awake” to try again.');
+        } else {
+          setStatus(wakeLockStatus, 'Screen wake lock pauses while this page is hidden and resumes when you return.');
+        }
+      }, { once: true });
+      setStatus(wakeLockStatus, 'The screen will stay awake while this room is open and this page is visible.');
+    } catch (error) {
+      if (keepScreenAwake && !state.stopped) {
+        if (document.visibilityState === 'visible') {
+          keepScreenAwake = false;
+          updateWakeLockButton();
+          setStatus(wakeLockStatus, `Could not keep the screen awake: ${error.message}`, true);
+        } else {
+          setStatus(wakeLockStatus, 'Screen wake lock pauses while this page is hidden and resumes when you return.');
+        }
+      }
+    } finally {
+      wakeLockRequestPending = false;
+      if (keepScreenAwake && !screenWakeLock && !state.stopped && !activeView.hidden &&
+          document.visibilityState === 'visible') {
+        requestScreenWakeLock();
+      }
+    }
+  }
+
+  function setScreenAwake(enabled) {
+    if (enabled) {
+      keepScreenAwake = true;
+      wakeLockToggleButton.disabled = false;
+      updateWakeLockButton();
+      setStatus(wakeLockStatus, 'Requesting screen wake lock…');
+      void requestScreenWakeLock();
+      return;
+    }
+
+    keepScreenAwake = false;
+    updateWakeLockButton();
+    const lock = screenWakeLock;
+    screenWakeLock = null;
+    if (lock) {
+      lock.release().catch((error) => {
+        setStatus(wakeLockStatus, `Could not release screen wake lock: ${error.message}`, true);
+      });
+    }
+    setStatus(wakeLockStatus, 'The screen is allowed to sleep while the room remains open.');
   }
 
   async function chooseAutoSaveFolder() {
@@ -867,6 +951,7 @@
 
   function stopRoom() {
     state.stopped = true;
+    setScreenAwake(false);
     clearTimeout(state.connectTimeout);
     if (state.pendingAck) {
       const pending = state.pendingAck;
@@ -930,6 +1015,24 @@
   document.querySelector('#create-room').addEventListener('click', startHostRoom);
   document.querySelector('#join-form').addEventListener('submit', joinRoom);
   document.querySelector('#leave-room').addEventListener('click', stopRoom);
+  wakeLockToggleButton.addEventListener('click', () => {
+    setScreenAwake(!keepScreenAwake);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!keepScreenAwake) return;
+    if (document.visibilityState === 'visible') {
+      void requestScreenWakeLock();
+      return;
+    }
+    const lock = screenWakeLock;
+    screenWakeLock = null;
+    if (lock) {
+      lock.release().catch((error) => {
+        setStatus(wakeLockStatus, `Could not release screen wake lock: ${error.message}`, true);
+      });
+    }
+    setStatus(wakeLockStatus, 'Screen wake lock pauses while this page is hidden and resumes when you return.');
+  });
   if (typeof window.showDirectoryPicker === 'function') {
     setStatus(autoSaveStatus, 'Choose a folder to save incoming files directly to disk. Files under 25 MB can be received without a folder and downloaded from the chat.');
     autoSaveFolderButton.addEventListener('click', () => {

@@ -177,6 +177,14 @@
       <h2 id="room-heading">Share chat</h2>
       <p class="connection-status" id="connection-status" role="status" aria-live="polite">Starting connection…</p>
 
+      <div class="invite-box wake-lock-box">
+        <h3>Keep screen awake</h3>
+        <p class="invite-help" id="wake-lock-status" role="status" aria-live="polite">Screen wake lock will be requested while a room is open, if supported.</p>
+        <div class="invite-actions">
+          <button class="secondary-button" id="wake-lock-toggle" type="button" aria-pressed="false">Keep screen awake</button>
+        </div>
+      </div>
+
       <div class="invite-box auto-save-box">
         <h3>Automatic file saving</h3>
         <p class="invite-help" id="auto-save-status" role="status" aria-live="polite"></p>
