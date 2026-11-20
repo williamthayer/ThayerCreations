@@ -33,9 +33,10 @@
     'compass', 'dandelion', 'daybreak', 'firefly', 'footpath', 'hammock', 'heather', 'hourglass',
     'marsh', 'oatmeal', 'pavilion', 'rainfall', 'redwood', 'seaspray', 'snowdrop', 'woodland'
   ];
-  const MAX_FILE_SIZE = 25 * 1024 * 1024;
+  const MAX_BUFFERED_FILE_SIZE = 25 * 1024 * 1024;
   const MAX_BUFFERED_AMOUNT = 1024 * 1024;
   const CHUNK_SIZE = 16 * 1024;
+  const FILE_ACK_INTERVAL = 16;
   const config = window.THAYER_CREATIONS_SUPABASE || {};
   const client = window.supabase && config.url && config.anonKey
     ? window.supabase.createClient(config.url, config.anonKey)
@@ -66,8 +67,11 @@
     remoteDescriptionSet: false,
     queuedCandidates: [],
     pendingTransfer: null,
+    pendingAck: null,
+    activeOutgoingTransfer: null,
     incomingOffer: null,
     incomingFile: null,
+    incomingMessageQueue: Promise.resolve(),
     connectTimeout: null,
     objectUrls: [],
     stopped: false
@@ -128,17 +132,26 @@
     return Uint8Array.from(binary, (character) => character.charCodeAt(0));
   }
 
-  async function encryptEnvelope(bytes, kind) {
+  function envelopeAdditionalData(kind, transferId = '', sequence = '', final = false) {
+    return new TextEncoder().encode(`chat-share:v1:${kind}:${transferId}:${sequence}:${final ? 1 : 0}`);
+  }
+
+  async function encryptEnvelope(bytes, kind, transfer = null) {
     if (!cryptoKey) throw new Error('This room is missing its encryption key.');
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const additionalData = new TextEncoder().encode(`chat-share:v1:${kind}`);
+    const transferId = transfer ? transfer.id : '';
+    const sequence = transfer ? transfer.sequence : '';
+    const final = Boolean(transfer && transfer.final);
+    const additionalData = envelopeAdditionalData(kind, transferId, sequence, final);
     const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData }, cryptoKey, bytes);
-    return JSON.stringify({
+    const envelope = {
       type: 'encrypted',
       kind,
       iv: encodeBase64Url(iv),
       data: encodeBase64Url(new Uint8Array(ciphertext))
-    });
+    };
+    if (transfer) Object.assign(envelope, { transferId, sequence, final });
+    return JSON.stringify(envelope);
   }
 
   async function decryptEnvelope(value) {
@@ -153,12 +166,26 @@
         typeof envelope.iv !== 'string' || typeof envelope.data !== 'string') {
       throw new Error('Received an invalid encrypted packet.');
     }
+    let transfer = null;
+    if (envelope.kind === 'binary') {
+      if (typeof envelope.transferId !== 'string' || !/^[a-f0-9-]{20,60}$/.test(envelope.transferId) ||
+          !Number.isSafeInteger(envelope.sequence) || envelope.sequence < 0 ||
+          typeof envelope.final !== 'boolean') {
+        throw new Error('Received invalid file-transfer metadata.');
+      }
+      transfer = { id: envelope.transferId, sequence: envelope.sequence, final: envelope.final };
+    }
     const plaintext = await crypto.subtle.decrypt({
       name: 'AES-GCM',
       iv: decodeBase64Url(envelope.iv),
-      additionalData: new TextEncoder().encode(`chat-share:v1:${envelope.kind}`)
+      additionalData: envelopeAdditionalData(
+        envelope.kind,
+        transfer ? transfer.id : '',
+        transfer ? transfer.sequence : '',
+        transfer ? transfer.final : false
+      )
     }, cryptoKey, decodeBase64Url(envelope.data));
-    return { kind: envelope.kind, plaintext };
+    return { kind: envelope.kind, plaintext, transfer };
   }
 
   function setConnectionStatus(message, isError = false) {
@@ -267,9 +294,12 @@
       setConnectionStatus('The encrypted data channel reported an error.', true);
     };
     channel.onmessage = (event) => {
-      handleDataMessage(event).catch((error) => {
-        setConnectionStatus(`Could not decrypt received data: ${error.message}`, true);
-      });
+      state.incomingMessageQueue = state.incomingMessageQueue
+        .then(() => handleDataMessage(event))
+        .catch(async (error) => {
+          setConnectionStatus(`File or message receive failed: ${error.message}`, true);
+          await abortIncomingFile(error.message);
+        });
     };
   }
 
@@ -367,11 +397,15 @@
     state.dataChannel.send(packet);
   }
 
-  async function sendBinaryData(data) {
+  async function sendBinaryData(data, transferId, sequence, final) {
     if (!state.dataChannel || state.dataChannel.readyState !== 'open') {
       throw new Error('The peer is not connected.');
     }
-    state.dataChannel.send(await encryptEnvelope(new Uint8Array(data), 'binary'));
+    state.dataChannel.send(await encryptEnvelope(new Uint8Array(data), 'binary', {
+      id: transferId,
+      sequence,
+      final
+    }));
   }
 
   async function handleDataMessage(event) {
@@ -381,7 +415,7 @@
     }
     const decrypted = await decryptEnvelope(event.data);
     if (decrypted.kind === 'binary') {
-      receiveFileChunk(decrypted.plaintext);
+      await receiveFileChunk(decrypted.plaintext, decrypted.transfer);
       return;
     }
     let payload;
@@ -395,20 +429,40 @@
     if (payload.type === 'message' && typeof payload.text === 'string' && payload.text.length <= 4000) {
       appendChatItem(payload.text);
     } else if (payload.type === 'file-offer') {
-      receiveFileOffer(payload);
+      await receiveFileOffer(payload);
     } else if (payload.type === 'file-response') {
       resolveFileOffer(payload);
     } else if (payload.type === 'file-start') {
       startReceivingFile(payload);
+    } else if (payload.type === 'file-ack') {
+      resolveFileAck(payload);
+    } else if (payload.type === 'file-abort') {
+      abortOutgoingTransfer(payload);
     } else if (payload.type === 'file-end') {
-      finishReceivingFile(payload);
+      await finishReceivingFile(payload);
     }
   }
 
-  function receiveFileOffer(payload) {
-    if (state.incomingOffer || !/^[a-f0-9-]{20,60}$/.test(payload.id || '') ||
+  async function receiveFileOffer(payload) {
+    if (!/^[a-f0-9-]{20,60}$/.test(payload.id || '') ||
         typeof payload.name !== 'string' || payload.name.length > 255 ||
-        !Number.isInteger(payload.size) || payload.size < 0 || payload.size > MAX_FILE_SIZE) {
+        !Number.isSafeInteger(payload.size) || payload.size < 0) {
+      return;
+    }
+    if (state.incomingOffer || state.incomingFile) {
+      await sendData({
+        type: 'file-response',
+        id: payload.id,
+        accepted: false,
+        reason: 'Finish the current incoming file before starting another.'
+      });
+      return;
+    }
+    const canStreamToDisk = typeof window.showSaveFilePicker === 'function';
+    if (!canStreamToDisk && payload.size > MAX_BUFFERED_FILE_SIZE) {
+      const reason = 'This browser cannot stream large files to disk; its receive limit is 25 MB.';
+      appendChatItem(`Cannot receive "${payload.name}": ${reason}`);
+      await sendData({ type: 'file-response', id: payload.id, accepted: false, reason });
       return;
     }
     state.incomingOffer = payload.id;
@@ -426,24 +480,66 @@
     appendChatItem(`Peer wants to send "${payload.name}" (${formatSize(payload.size)}).`, false, { actions: [actions] });
     const respond = async (accepted) => {
       if (state.incomingOffer !== payload.id) return;
-      state.incomingOffer = null;
       accept.disabled = true;
       reject.disabled = true;
+      if (!accepted) {
+        state.incomingOffer = null;
+        await sendData({ type: 'file-response', id: payload.id, accepted: false, reason: 'The recipient declined the file.' });
+        return;
+      }
+
+      let writable = null;
+      let progressInfo = null;
       try {
-        await sendData({ type: 'file-response', id: payload.id, accepted });
-        if (accepted) {
-          state.incomingFile = {
-            id: payload.id,
-            name: payload.name,
-            size: payload.size,
-            type: typeof payload.mime === 'string' ? payload.mime.slice(0, 120) : '',
-            chunks: [],
-            received: 0
-          };
-          appendChatItem(`Receiving "${payload.name}"…`, false, { status: 'Waiting for file data.' });
+        if (canStreamToDisk) {
+          const pickerPromise = window.showSaveFilePicker({ suggestedName: safeFileName(payload.name) });
+          const handle = await pickerPromise;
+          writable = await handle.createWritable();
         }
+        progressInfo = {
+          progress: { max: payload.size || 1, value: 0 },
+          status: canStreamToDisk ? 'Waiting to save to disk.' : 'Waiting for file data.'
+        };
+        state.incomingFile = {
+          id: payload.id,
+          name: payload.name,
+          size: payload.size,
+          type: typeof payload.mime === 'string' ? payload.mime.slice(0, 120) : '',
+          writable,
+          chunks: [],
+          received: 0,
+          nextSequence: 0,
+          totalChunks: null,
+          started: false,
+          progressInfo
+        };
+        state.incomingOffer = null;
+        appendChatItem(
+          canStreamToDisk ? `Saving "${payload.name}" to disk…` : `Receiving "${payload.name}"…`,
+          false,
+          progressInfo
+        );
+        await sendData({ type: 'file-response', id: payload.id, accepted: true });
       } catch (error) {
-        setConnectionStatus(error.message, true);
+        state.incomingOffer = null;
+        if (writable) {
+          try {
+            await writable.abort();
+          } catch (abortError) {
+            setConnectionStatus(`Could not cancel the save: ${abortError.message}`, true);
+          }
+        }
+        state.incomingFile = null;
+        const reason = error.name === 'AbortError'
+          ? 'The recipient cancelled the save dialog.'
+          : `Could not prepare the file: ${error.message}`;
+        if (progressInfo && progressInfo.setStatus) progressInfo.setStatus(reason);
+        setConnectionStatus(reason, true);
+        try {
+          await sendData({ type: 'file-response', id: payload.id, accepted: false, reason });
+        } catch (sendError) {
+          setConnectionStatus(`Could not notify the sender: ${sendError.message}`, true);
+        }
       }
     };
     accept.addEventListener('click', () => {
@@ -459,49 +555,147 @@
     const pending = state.pendingTransfer;
     state.pendingTransfer = null;
     clearTimeout(pending.timeout);
-    pending.resolve(Boolean(payload.accepted));
+    pending.resolve({ accepted: Boolean(payload.accepted), reason: payload.reason });
   }
 
   function startReceivingFile(payload) {
-    if (!state.incomingFile || payload.id !== state.incomingFile.id ||
-        payload.size !== state.incomingFile.size) {
-      state.incomingFile = null;
-      setConnectionStatus('The incoming file did not match its offer.', true);
-    }
-  }
-
-  function receiveFileChunk(data) {
-    if (!state.incomingFile || !(data instanceof ArrayBuffer)) return;
     const file = state.incomingFile;
-    if (file.received + data.byteLength > file.size) {
-      state.incomingFile = null;
-      setConnectionStatus('The received file exceeded its declared size.', true);
-      return;
+    const expectedChunks = file ? Math.ceil(file.size / CHUNK_SIZE) : -1;
+    if (!file || payload.id !== file.id || payload.size !== file.size ||
+        payload.totalChunks !== expectedChunks) {
+      throw new Error('The incoming file did not match its offer.');
     }
-    file.chunks.push(data);
-    file.received += data.byteLength;
+    file.started = true;
+    file.totalChunks = payload.totalChunks;
+    file.progressInfo.setStatus(file.writable ? 'Saving to disk…' : 'Receiving file data…');
   }
 
-  function finishReceivingFile(payload) {
+  async function receiveFileChunk(data, transfer) {
+    if (!(data instanceof ArrayBuffer)) throw new Error('Received an invalid file chunk.');
+    const file = state.incomingFile;
+    const expectedFinal = file && file.nextSequence === file.totalChunks - 1;
+    if (!file || !file.started || transfer.id !== file.id ||
+        transfer.sequence !== file.nextSequence || transfer.final !== expectedFinal ||
+      data.byteLength !== Math.min(CHUNK_SIZE, file.size - file.received) ||
+      file.received + data.byteLength > file.size) {
+      throw new Error('The received file chunk is out of order or exceeds the offered size.');
+    }
+    if (file.writable) await file.writable.write(data);
+    else file.chunks.push(data);
+    file.received += data.byteLength;
+    file.nextSequence += 1;
+    file.progressInfo.setProgress(file.received);
+    if (file.nextSequence % FILE_ACK_INTERVAL === 0 || transfer.final) {
+      await sendData({ type: 'file-ack', id: file.id, sequence: transfer.sequence });
+    }
+  }
+
+  async function finishReceivingFile(payload) {
     const file = state.incomingFile;
     if (!file || payload.id !== file.id) return;
-    state.incomingFile = null;
-    if (file.received !== file.size) {
-      setConnectionStatus('The file transfer was incomplete.', true);
-      return;
+    if (!file.started || file.received !== file.size ||
+        file.nextSequence !== file.totalChunks) {
+      throw new Error('The file transfer was incomplete.');
     }
-    const blob = new Blob(file.chunks, { type: file.type || 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    state.objectUrls.push(url);
-    appendChatItem(`Received "${file.name}" (${formatSize(file.size)}).`, false, {
-      download: { url, name: file.name }
+    if (file.writable) {
+      await file.writable.close();
+      file.progressInfo.setStatus('Saved to disk.');
+    } else {
+      const blob = new Blob(file.chunks, { type: file.type || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      state.objectUrls.push(url);
+      appendChatItem(`Received "${file.name}" (${formatSize(file.size)}).`, false, {
+        download: { url, name: file.name }
+      });
+    }
+    state.incomingFile = null;
+  }
+
+  function safeFileName(name) {
+    const sanitized = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim();
+    return sanitized || 'shared-file';
+  }
+
+  async function abortIncomingFile(reason) {
+    const file = state.incomingFile;
+    if (!file) return;
+    state.incomingFile = null;
+    file.progressInfo.setStatus(`Transfer failed: ${reason}`);
+    if (file.writable) {
+      try {
+        await file.writable.abort();
+      } catch (error) {
+        setConnectionStatus(`Could not discard the incomplete file: ${error.message}`, true);
+      }
+    }
+    try {
+      await sendData({ type: 'file-abort', id: file.id, reason: reason.slice(0, 200) });
+    } catch (error) {
+      setConnectionStatus(`Could not notify the sender: ${error.message}`, true);
+    }
+  }
+
+  function prepareFileAck(id, sequence) {
+    if (state.pendingAck) throw new Error('A previous file chunk is still awaiting acknowledgement.');
+    const pending = { id, sequence, acknowledged: false, error: null, resolve: null, reject: null, timeout: null };
+    state.pendingAck = pending;
+    return pending;
+  }
+
+  function waitForFileAck(pending) {
+    if (pending.error) {
+      state.pendingAck = null;
+      return Promise.reject(new Error(pending.error));
+    }
+    if (pending.acknowledged) {
+      state.pendingAck = null;
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      pending.resolve = resolve;
+      pending.reject = reject;
+      pending.timeout = setTimeout(() => {
+        if (state.pendingAck === pending) state.pendingAck = null;
+        reject(new Error('The receiver stopped acknowledging file data.'));
+      }, 30000);
     });
   }
 
+  function resolveFileAck(payload) {
+    const pending = state.pendingAck;
+    if (!pending || payload.id !== pending.id || payload.sequence !== pending.sequence) return;
+    pending.acknowledged = true;
+    if (pending.resolve) {
+      state.pendingAck = null;
+      clearTimeout(pending.timeout);
+      pending.resolve();
+    }
+  }
+
+  function abortOutgoingTransfer(payload) {
+    const transfer = state.activeOutgoingTransfer;
+    if (!transfer || payload.id !== transfer.id) return;
+    transfer.abortReason = typeof payload.reason === 'string' ? payload.reason : 'The receiver could not save the file.';
+    const pending = state.pendingAck;
+    if (pending && pending.id === transfer.id) {
+      pending.error = transfer.abortReason;
+    }
+    if (pending && pending.id === transfer.id && pending.reject) {
+      state.pendingAck = null;
+      clearTimeout(pending.timeout);
+      pending.reject(new Error(transfer.abortReason));
+    }
+  }
+
   function formatSize(bytes) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    let size = bytes;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${unit === 0 ? size : size.toFixed(1)} ${units[unit]}`;
   }
 
   function waitForBuffer(channel) {
@@ -520,12 +714,12 @@
   }
 
   async function sendFile(file) {
-    if (file.size > MAX_FILE_SIZE) {
-      setConnectionStatus('Files must be 25 MB or smaller.', true);
+    if (!Number.isSafeInteger(file.size)) {
+      setConnectionStatus('This file is too large for the browser to transfer safely.', true);
       fileInput.value = '';
       return;
     }
-    if (state.pendingTransfer) {
+    if (state.pendingTransfer || state.activeOutgoingTransfer) {
       setConnectionStatus('Wait for the current file offer to finish first.', true);
       fileInput.value = '';
       return;
@@ -537,7 +731,7 @@
       transfer.timeout = setTimeout(() => {
         if (state.pendingTransfer === transfer) state.pendingTransfer = null;
         reject(new Error('The file offer expired because the peer did not respond.'));
-      }, 60000);
+      }, 5 * 60 * 1000);
     });
     state.pendingTransfer = transfer;
     const progressInfo = { progress: { max: file.size || 1, value: 0 }, status: 'Waiting for acceptance.' };
@@ -550,19 +744,27 @@
         size: file.size,
         mime: file.type.slice(0, 120)
       });
-      const accepted = await response;
-      if (!accepted) {
-        progressInfo.setStatus('The peer declined this file.');
+      const decision = await response;
+      if (!decision.accepted) {
+        progressInfo.setStatus(decision.reason || 'The peer declined this file.');
         return;
       }
+      state.activeOutgoingTransfer = transfer;
       progressInfo.setStatus('Sending…');
-      await sendData({ type: 'file-start', id, size: file.size });
-      for (let offset = 0; offset < file.size; offset += CHUNK_SIZE) {
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      await sendData({ type: 'file-start', id, size: file.size, totalChunks });
+      for (let sequence = 0, offset = 0; offset < file.size; sequence += 1, offset += CHUNK_SIZE) {
+        if (transfer.abortReason) throw new Error(transfer.abortReason);
+        const chunk = await file.slice(offset, offset + CHUNK_SIZE).arrayBuffer();
+        const isFinal = sequence === totalChunks - 1;
+        const shouldWaitForAck = (sequence + 1) % FILE_ACK_INTERVAL === 0 || isFinal;
+        const pendingAck = shouldWaitForAck ? prepareFileAck(id, sequence) : null;
         await waitForBuffer(state.dataChannel);
         if (state.dataChannel.readyState !== 'open') throw new Error('The peer connection closed during transfer.');
-        const chunk = await file.slice(offset, offset + CHUNK_SIZE).arrayBuffer();
-        await sendBinaryData(chunk);
+        await sendBinaryData(chunk, id, sequence, isFinal);
         progressInfo.setProgress(Math.min(offset + chunk.byteLength, file.size));
+        if (pendingAck) await waitForFileAck(pendingAck);
+        if (transfer.abortReason) throw new Error(transfer.abortReason);
       }
       await sendData({ type: 'file-end', id });
       progressInfo.setStatus('File sent.');
@@ -571,6 +773,13 @@
       setConnectionStatus(error.message, true);
     } finally {
       if (state.pendingTransfer === transfer) state.pendingTransfer = null;
+      if (state.activeOutgoingTransfer === transfer) state.activeOutgoingTransfer = null;
+      if (state.pendingAck && state.pendingAck.id === id) {
+        const pending = state.pendingAck;
+        state.pendingAck = null;
+        clearTimeout(pending.timeout);
+        if (pending.reject) pending.reject(new Error('File transfer ended before acknowledgement.'));
+      }
       clearTimeout(transfer.timeout);
       fileInput.value = '';
     }
@@ -640,6 +849,21 @@
   function stopRoom() {
     state.stopped = true;
     clearTimeout(state.connectTimeout);
+    if (state.pendingAck) {
+      const pending = state.pendingAck;
+      pending.error = 'The room was closed.';
+      if (pending.reject) {
+        state.pendingAck = null;
+        clearTimeout(pending.timeout);
+        pending.reject(new Error(pending.error));
+      }
+    }
+    if (state.activeOutgoingTransfer) state.activeOutgoingTransfer.abortReason = 'The room was closed.';
+    if (state.incomingFile && state.incomingFile.writable) {
+      state.incomingFile.writable.abort().catch((error) => {
+        setConnectionStatus(`Could not cancel the incomplete file: ${error.message}`, true);
+      });
+    }
     if (state.peer) state.peer.close();
     if (state.channel && client) {
       client.removeChannel(state.channel).then((status) => {
@@ -663,6 +887,8 @@
     state.acceptedPeer = false;
     state.remoteDescriptionSet = false;
     state.pendingTransfer = null;
+    state.pendingAck = null;
+    state.activeOutgoingTransfer = null;
     state.incomingOffer = null;
     state.incomingFile = null;
     state.queuedCandidates = [];

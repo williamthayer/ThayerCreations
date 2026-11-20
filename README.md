@@ -37,9 +37,9 @@ The **Quick tools** page links to small engineering utilities. The Voltage Divid
 
 ## Chat Share
 
-The **Chat Share** page creates a two-word, three-number room code. The other person opens the page on their computer and types the same code; both browsers derive the room and AES-256-GCM key from it with PBKDF2. Messages and file chunks are additionally carried over WebRTC's encrypted data channel. Supabase Realtime is used only for temporary WebRTC connection signaling; message and file contents are not sent to Supabase or saved.
+The **Chat Share** page creates a two-word, three-number room code. The other person opens the page on their computer and types the same code; both browsers derive the room and AES-256-GCM key from it with PBKDF2. Messages and file chunks are additionally carried over WebRTC's encrypted data channel. Supabase Realtime is used only for temporary WebRTC connection signaling; message and file contents are not sent to Supabase or stored by the site.
 
-Both people must keep the page open while chatting or transferring files. Files are limited to 25 MB and are held in browser memory until downloaded. Because the short room code is the only shared secret, this is intended for quick temporary sharing, not highly sensitive information. Direct connections may fail on networks that require a TURN relay; no TURN server is configured. The site must be opened over HTTPS (GitHub Pages already serves it over HTTPS).
+Both people must keep the page open while chatting or transferring files. In browsers with the File System Access API, the receiver chooses a destination and the page streams the encrypted transfer to disk as it arrives, with receiver acknowledgments to limit buffering; there is no app-imposed file-size cap in this mode. Browser, disk-space, and connection limits still apply, and interrupted transfers do not resume. Browsers without that API use a 25 MB in-memory download fallback. Because the short room code is the only shared secret, this is intended for quick temporary sharing, not highly sensitive information. Direct connections may fail on networks that require a TURN relay; no TURN server is configured. The site must be opened over HTTPS (GitHub Pages already serves it over HTTPS).
 
 ## Trace Runner
 

@@ -117,7 +117,7 @@
   <main>
     <p class="eyebrow">Share chat · Browser to browser</p>
     <h1 id="page-title">Chat &amp; file<br><em>share.</em></h1>
-    <p class="intro">Create a short code and tell the other person. They open this page on their computer and type the same code to connect. Messages and files travel over an encrypted peer-to-peer connection; nothing is saved or uploaded.</p>
+    <p class="intro">Create a short code and tell the other person. They open this page on their computer and type the same code to connect. Messages and files travel over an encrypted peer-to-peer connection; chat history and files are not stored by the site.</p>
 
     <section class="panel" id="create-view" aria-labelledby="create-heading">
       <h2 id="create-heading">Start a share chat</h2>
@@ -172,9 +172,9 @@
       </div>
     </section>
 
-    <p class="security-note"><strong>Security note:</strong> Messages and file chunks use AES-256-GCM encryption, in addition to WebRTC's encrypted connection. The encryption key and room are derived from the code; Supabase sees temporary connection details, not the content. The other peer and signaling service may see network connection metadata. Because this short code has limited strength, use it for quick sharing rather than highly sensitive information. Some networks require a relay; none is configured here.</p>
+    <p class="security-note"><strong>Security note:</strong> Messages and file chunks use AES-256-GCM encryption, in addition to WebRTC's encrypted connection. On supported browsers, accepted files stream to disk; other browsers use a 25 MB in-memory fallback. The other peer and signaling service may see network connection metadata. This short code is for quick sharing, not highly sensitive information. Some networks require a relay; none is configured here.</p>
   </main>
 
-  <footer class="site-footer"><span>Thayer Creations · Chat Share</span><span>No saved messages or uploaded files</span></footer>
+  <footer class="site-footer"><span>Thayer Creations · Chat Share</span><span>No chat history or server-side file storage</span></footer>
 </body>
 </html>
