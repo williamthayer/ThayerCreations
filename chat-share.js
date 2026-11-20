@@ -298,7 +298,7 @@
     if (audioError) {
       setStatus(notificationsStatus, `Notifications are on, but the ding sound could not be enabled: ${audioError.message}`, true);
     } else {
-      setStatus(notificationsStatus, 'Notifications and the ding sound are on for new messages and completed files.');
+      setStatus(notificationsStatus, 'Notifications and the ding sound are on for new messages, queued files, and completed files.');
     }
   }
 
@@ -844,10 +844,15 @@
       throw new Error('Received invalid file queue information.');
     }
     if (payload.revision <= state.peerQueueRevision) return;
+    const previousQueueIds = new Set(state.peerQueueFiles.map((file) => file.id));
+    const newlyQueuedFiles = payload.files.filter((file) => !previousQueueIds.has(file.id));
     state.peerQueueRevision = payload.revision;
     state.peerQueueFiles = payload.files;
     state.peerQueueTotal = payload.total;
     renderPeerFileQueue();
+    newlyQueuedFiles.forEach((file) => {
+      notifyRoomEvent('File queued', `"${file.name}" is queued by your peer.`);
+    });
   }
 
   function renderPeerFileQueue() {
@@ -1342,6 +1347,7 @@
       };
       appendChatItem(`Queued "${file.name}" (${formatSize(file.size)}).`, true, item.progressInfo);
       state.outgoingQueue.push(item);
+      notifyRoomEvent('File queued', `"${file.name}" is queued for sending.`);
     });
     void publishOutgoingQueue();
     void processOutgoingQueue();
