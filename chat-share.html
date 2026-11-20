@@ -30,18 +30,21 @@
     button, input { color: inherit; font: inherit; }
     button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
     [hidden] { display: none !important; }
-    .site-header { min-height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
-    .brand { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 12px; text-decoration: none; }
-    .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid #0e5fa8; background: #0e5fa8; color: #a9e3ff; font: 700 22px var(--display); transform: rotate(-4deg); }
-    .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-transform: uppercase; }
-    .header-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 18px; }
-    .header-links a { color: var(--muted); font: 9px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .site-header { min-height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 35px; height: 35px; display: block; border: 1px solid #0e5fa8; background: #0e5fa8; transform: rotate(-4deg); }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-decoration: none; text-transform: uppercase; }
+    .header-links { display: flex; align-items: center; gap: 25px; }
+    .header-links a { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
     .header-links a:hover, .header-links a[aria-current="page"] { color: var(--green); }
     main { width: min(840px, 100%); min-height: calc(100vh - 150px); margin: 0 auto; padding: 70px 24px 80px; }
     .eyebrow, .kicker { margin: 0 0 13px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
     h1 { margin: 0; font: 500 clamp(48px, 9vw, 82px)/.98 var(--display); letter-spacing: -.08em; }
     h1 em { color: var(--green); font-style: normal; }
     .intro { max-width: 600px; margin: 18px 0 30px; color: var(--muted); font-size: 14px; line-height: 1.75; }
+    .back-link { display: inline-block; margin-bottom: 25px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
+    .back-link:hover { text-decoration: underline; text-underline-offset: 3px; }
     .panel { padding: 25px; border: 1px solid var(--line); background: var(--surface); }
     .panel h2 { margin: 0 0 8px; font: 600 22px var(--display); letter-spacing: -.04em; }
     .panel-copy { margin: 0 0 18px; color: var(--muted); font-size: 12px; line-height: 1.65; }
@@ -84,8 +87,10 @@
     .security-note strong { color: var(--ink); }
     .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
     @media (max-width: 620px) {
-      .site-header { padding: 10px 5%; align-items: flex-start; flex-direction: column; gap: 12px; }
-      .header-links { justify-content: start; gap: 10px 15px; }
+      .site-header { min-height: 65px; padding: 10px 5%; flex-wrap: wrap; gap: 10px; }
+      .brand-mark { width: 31px; height: 31px; }
+      .brand-name { font-size: 10px; }
+      .header-links { gap: 10px; }
       .header-links a { font-size: 8px; }
       main { padding: 55px 5% 65px; }
       .panel { padding: 19px 15px; }
@@ -103,19 +108,21 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="./index.html">
-      <span class="brand-mark" aria-hidden="true">T</span>
-      <span class="brand-name">Thayer Creations</span>
-    </a>
+    <div class="brand">
+      <a class="brand-mark" href="./index.html" aria-label="Thayer Creations home">
+        <svg viewBox="0 0 64 64" focusable="false"><path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10" fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"/></svg>
+      </a>
+      <a class="brand-name" href="./index.html">Thayer Creations</a>
+    </div>
     <nav class="header-links" aria-label="Main navigation">
       <a href="./#projects">Projects</a>
       <a href="./links.html">Awesome Links</a>
-      <a href="./quick-tools.html">Quick tools</a>
-      <a href="./chat-share.html" aria-current="page">Chat Share</a>
+      <a href="./quick-tools.html" aria-current="page">Quick tools</a>
     </nav>
   </header>
 
   <main>
+    <a class="back-link" href="./quick-tools.html">← All quick tools</a>
     <p class="eyebrow">Share chat · Browser to browser</p>
     <h1 id="page-title">Chat &amp; file<br><em>share.</em></h1>
     <p class="intro">Create a short code and tell the other person. They open this page on their computer and type the same code to connect. Messages and files travel over an encrypted peer-to-peer connection; chat history and files are not stored by the site.</p>
