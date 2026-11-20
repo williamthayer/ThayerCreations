@@ -71,6 +71,13 @@
     .invite-code { font-size: 19px; font-weight: 500; letter-spacing: .03em; }
     .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .invite-help { margin: 13px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .wake-lock-switch { display: inline-flex; align-items: center; gap: 11px; color: var(--green); cursor: pointer; font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .wake-lock-switch input { position: relative; width: 44px; height: 24px; margin: 0; appearance: none; border: 1px solid var(--line); border-radius: 999px; background: #e9ece6; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+    .wake-lock-switch input::before { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(29, 39, 35, .22); content: ""; transition: transform .15s ease; }
+    .wake-lock-switch input:checked { border-color: var(--green); background: var(--green); }
+    .wake-lock-switch input:checked::before { transform: translateX(20px); }
+    .wake-lock-switch input:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    .wake-lock-switch input:disabled { opacity: .55; cursor: not-allowed; }
     .auto-save-box { margin-top: 20px; }
     .chat-shell { margin-top: 22px; border: 1px solid var(--line); background: #fff; }
     .chat-toolbar { min-height: 54px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
@@ -179,9 +186,11 @@
 
       <div class="invite-box wake-lock-box">
         <h3>Keep screen awake</h3>
-        <p class="invite-help" id="wake-lock-status" role="status" aria-live="polite">Screen wake lock will be requested while a room is open, if supported.</p>
+        <p class="invite-help" id="wake-lock-status" role="status" aria-live="polite">Turn this on while chatting or transferring files. It works while this page is visible in supported browsers.</p>
         <div class="invite-actions">
-          <button class="secondary-button" id="wake-lock-toggle" type="button" aria-pressed="false">Keep screen awake</button>
+          <label class="wake-lock-switch">Keep screen awake
+            <input id="wake-lock-toggle" type="checkbox" role="switch" aria-describedby="wake-lock-status">
+          </label>
         </div>
       </div>
 
