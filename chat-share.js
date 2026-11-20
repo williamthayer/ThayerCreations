@@ -36,6 +36,7 @@
   const MAX_BUFFERED_AMOUNT = 1024 * 1024;
   const CHUNK_SIZE = 16 * 1024;
   const FILE_ACK_INTERVAL = 16;
+  const MAX_DIRECT_DOWNLOAD_SIZE = 25 * 1024 * 1024;
   const config = window.THAYER_CREATIONS_SUPABASE || {};
   const client = window.supabase && config.url && config.anonKey
     ? window.supabase.createClient(config.url, config.anonKey)
@@ -481,8 +482,9 @@
       return;
     }
     const canChooseSaveFolder = typeof window.showDirectoryPicker === 'function';
-    if (canChooseSaveFolder && !state.saveDirectoryHandle) {
-      const reason = 'Choose a save folder before the sender tries again.';
+    const canDownloadWithoutFolder = payload.size < MAX_DIRECT_DOWNLOAD_SIZE;
+    if (canChooseSaveFolder && !state.saveDirectoryHandle && !canDownloadWithoutFolder) {
+      const reason = 'Choose a save folder for files 25 MB or larger before the sender tries again.';
       appendChatItem(`Could not automatically accept "${payload.name}": ${reason}`);
       await sendData({ type: 'file-response', id: payload.id, accepted: false, reason });
       return;
@@ -491,7 +493,9 @@
     state.incomingOffer = payload.id;
     const memoryNote = canStreamToDisk
       ? ''
-      : ' Files are buffered in memory in this browser, so very large transfers may be limited by available memory.';
+      : canDownloadWithoutFolder
+        ? ' A download link will appear when the file is received.'
+        : ' Files are buffered in memory in this browser, so very large transfers may be limited by available memory.';
     let writable = null;
     let progressInfo = null;
     try {
@@ -925,7 +929,7 @@
   document.querySelector('#join-form').addEventListener('submit', joinRoom);
   document.querySelector('#leave-room').addEventListener('click', stopRoom);
   if (typeof window.showDirectoryPicker === 'function') {
-    setStatus(autoSaveStatus, 'Choose a folder once for this page session. Incoming files will then be automatically accepted and saved there.');
+    setStatus(autoSaveStatus, 'Choose a folder to save incoming files directly to disk. Files under 25 MB can be received without a folder and downloaded from the chat.');
     autoSaveFolderButton.addEventListener('click', () => {
       chooseAutoSaveFolder().catch((error) => {
         setStatus(autoSaveStatus, `Could not enable auto-save: ${error.message}`, true);

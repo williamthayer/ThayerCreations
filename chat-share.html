@@ -104,7 +104,7 @@
   </style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script defer src="./supabase-config.js"></script>
-  <script defer src="./chat-share.js?v=dad2d74"></script>
+  <script defer src="./chat-share.js?v=direct-download-25mb"></script>
 </head>
 <body>
   <header class="site-header">
@@ -188,7 +188,7 @@
       </div>
     </section>
 
-    <p class="security-note"><strong>Security note:</strong> Messages and file chunks use AES-256-GCM encryption, in addition to WebRTC's encrypted connection. Incoming files are automatically accepted from the person in the room. Choose a save folder once per page session to stream files directly to disk; browsers without folder access buffer files in memory, so very large transfers depend on available memory. Only share the room code with someone you trust. The other peer and signaling service may see network connection metadata. This short code is for quick sharing, not highly sensitive information. Some networks require a relay; none is configured here.</p>
+    <p class="security-note"><strong>Security note:</strong> Messages and file chunks use AES-256-GCM encryption, in addition to WebRTC's encrypted connection. Incoming files are automatically accepted from the person in the room. Files under 25 MB can be received without choosing a folder and downloaded from the chat; choose a save folder to stream larger files directly to disk. Without folder access, files are buffered in memory, so very large transfers depend on available memory. Only share the room code with someone you trust. The other peer and signaling service may see network connection metadata. This short code is for quick sharing, not highly sensitive information. Some networks require a relay; none is configured here.</p>
   </main>
 
   <footer class="site-footer"><span>Thayer Creations · Chat Share</span><span>No chat history or server-side file storage</span></footer>
