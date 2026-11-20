@@ -62,6 +62,7 @@
     .invite-code { font-size: 19px; font-weight: 500; letter-spacing: .03em; }
     .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .invite-help { margin: 13px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .auto-save-box { margin-top: 20px; }
     .chat-shell { margin-top: 22px; border: 1px solid var(--line); background: #fff; }
     .chat-toolbar { min-height: 54px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
     .chat-toolbar strong { font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
@@ -153,6 +154,14 @@
         <p class="invite-help">The other person opens Chat Share and enters this code. The room closes when you leave this page.</p>
       </div>
 
+      <div class="invite-box auto-save-box">
+        <h3>Automatic file saving</h3>
+        <p class="invite-help" id="auto-save-status" role="status" aria-live="polite"></p>
+        <div class="invite-actions">
+          <button class="secondary-button" id="auto-save-folder" type="button">Choose save folder</button>
+        </div>
+      </div>
+
       <div class="chat-shell">
         <div class="chat-toolbar">
           <strong>Encrypted conversation</strong>
@@ -172,7 +181,7 @@
       </div>
     </section>
 
-    <p class="security-note"><strong>Security note:</strong> Messages and file chunks use AES-256-GCM encryption, in addition to WebRTC's encrypted connection. On supported browsers, accepted files stream to disk; other browsers use a 25 MB in-memory fallback. The other peer and signaling service may see network connection metadata. This short code is for quick sharing, not highly sensitive information. Some networks require a relay; none is configured here.</p>
+    <p class="security-note"><strong>Security note:</strong> Messages and file chunks use AES-256-GCM encryption, in addition to WebRTC's encrypted connection. Incoming files are automatically accepted from the person in the room. Choose a save folder once per page session to stream files directly to disk; browsers without folder access buffer files in memory, so very large transfers depend on available memory. Only share the room code with someone you trust. The other peer and signaling service may see network connection metadata. This short code is for quick sharing, not highly sensitive information. Some networks require a relay; none is configured here.</p>
   </main>
 
   <footer class="site-footer"><span>Thayer Creations · Chat Share</span><span>No chat history or server-side file storage</span></footer>

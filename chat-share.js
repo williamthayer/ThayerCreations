@@ -33,7 +33,6 @@
     'compass', 'dandelion', 'daybreak', 'firefly', 'footpath', 'hammock', 'heather', 'hourglass',
     'marsh', 'oatmeal', 'pavilion', 'rainfall', 'redwood', 'seaspray', 'snowdrop', 'woodland'
   ];
-  const MAX_BUFFERED_FILE_SIZE = 25 * 1024 * 1024;
   const MAX_BUFFERED_AMOUNT = 1024 * 1024;
   const CHUNK_SIZE = 16 * 1024;
   const FILE_ACK_INTERVAL = 16;
@@ -53,6 +52,8 @@
   const chatLog = document.querySelector('#chat-log');
   const chatEmpty = document.querySelector('#chat-empty');
   const chatForm = document.querySelector('#chat-form');
+  const autoSaveStatus = document.querySelector('#auto-save-status');
+  const autoSaveFolderButton = document.querySelector('#auto-save-folder');
   const messageInput = document.querySelector('#message-input');
   const fileInput = document.querySelector('#file-input');
   const sendButton = document.querySelector('#send-message');
@@ -71,6 +72,7 @@
     activeOutgoingTransfer: null,
     incomingOffer: null,
     incomingFile: null,
+    saveDirectoryHandle: null,
     incomingMessageQueue: Promise.resolve(),
     connectTimeout: null,
     objectUrls: [],
@@ -197,6 +199,26 @@
     joinView.hidden = true;
     activeView.hidden = false;
     document.querySelector('#room-role').textContent = role === 'host' ? 'Invite created' : 'Joining an invite';
+  }
+
+  async function chooseAutoSaveFolder() {
+    try {
+      const directory = await window.showDirectoryPicker({ mode: 'readwrite' });
+      let permission = await directory.queryPermission({ mode: 'readwrite' });
+      if (permission !== 'granted') {
+        permission = await directory.requestPermission({ mode: 'readwrite' });
+      }
+      if (permission !== 'granted') {
+        throw new Error('Folder permission was not granted.');
+      }
+      state.saveDirectoryHandle = directory;
+      autoSaveFolderButton.textContent = 'Change save folder';
+      setStatus(autoSaveStatus, `Auto-save is on for this page session. Incoming files will be saved to "${directory.name}".`);
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        setStatus(autoSaveStatus, `Could not enable auto-save: ${error.message}`, true);
+      }
+    }
   }
 
   function makeChannel(roomId) {
@@ -458,96 +480,87 @@
       });
       return;
     }
-    const canStreamToDisk = typeof window.showSaveFilePicker === 'function';
-    if (!canStreamToDisk && payload.size > MAX_BUFFERED_FILE_SIZE) {
-      const reason = 'This browser cannot stream large files to disk; its receive limit is 25 MB.';
-      appendChatItem(`Cannot receive "${payload.name}": ${reason}`);
+    const canChooseSaveFolder = typeof window.showDirectoryPicker === 'function';
+    if (canChooseSaveFolder && !state.saveDirectoryHandle) {
+      const reason = 'Choose a save folder before the sender tries again.';
+      appendChatItem(`Could not automatically accept "${payload.name}": ${reason}`);
       await sendData({ type: 'file-response', id: payload.id, accepted: false, reason });
       return;
     }
+    const canStreamToDisk = Boolean(state.saveDirectoryHandle);
     state.incomingOffer = payload.id;
-    const accept = document.createElement('button');
-    accept.className = 'secondary-button';
-    accept.type = 'button';
-    accept.textContent = 'Accept';
-    const reject = document.createElement('button');
-    reject.className = 'secondary-button';
-    reject.type = 'button';
-    reject.textContent = 'Decline';
-    const actions = document.createElement('span');
-    actions.className = 'invite-actions';
-    actions.append(accept, reject);
-    appendChatItem(`Peer wants to send "${payload.name}" (${formatSize(payload.size)}).`, false, { actions: [actions] });
-    const respond = async (accepted) => {
-      if (state.incomingOffer !== payload.id) return;
-      accept.disabled = true;
-      reject.disabled = true;
-      if (!accepted) {
-        state.incomingOffer = null;
-        await sendData({ type: 'file-response', id: payload.id, accepted: false, reason: 'The recipient declined the file.' });
-        return;
+    const memoryNote = canStreamToDisk
+      ? ''
+      : ' Files are buffered in memory in this browser, so very large transfers may be limited by available memory.';
+    let writable = null;
+    let progressInfo = null;
+    try {
+      let fileName = payload.name;
+      if (canStreamToDisk) {
+        const fileHandle = await createUniqueFileHandle(state.saveDirectoryHandle, payload.name);
+        fileName = fileHandle.name;
+        writable = await fileHandle.createWritable();
       }
-
-      let writable = null;
-      let progressInfo = null;
-      try {
-        if (canStreamToDisk) {
-          const pickerPromise = window.showSaveFilePicker({ suggestedName: safeFileName(payload.name) });
-          const handle = await pickerPromise;
-          writable = await handle.createWritable();
-        }
-        progressInfo = {
-          progress: { max: payload.size || 1, value: 0 },
-          status: canStreamToDisk ? 'Waiting to save to disk.' : 'Waiting for file data.'
-        };
-        state.incomingFile = {
-          id: payload.id,
-          name: payload.name,
-          size: payload.size,
-          type: typeof payload.mime === 'string' ? payload.mime.slice(0, 120) : '',
-          writable,
-          chunks: [],
-          received: 0,
-          nextSequence: 0,
-          totalChunks: null,
-          started: false,
-          progressInfo
-        };
-        state.incomingOffer = null;
-        appendChatItem(
-          canStreamToDisk ? `Saving "${payload.name}" to disk…` : `Receiving "${payload.name}"…`,
-          false,
-          progressInfo
-        );
-        await sendData({ type: 'file-response', id: payload.id, accepted: true });
-      } catch (error) {
-        state.incomingOffer = null;
-        if (writable) {
-          try {
-            await writable.abort();
-          } catch (abortError) {
-            setConnectionStatus(`Could not cancel the save: ${abortError.message}`, true);
-          }
-        }
-        state.incomingFile = null;
-        const reason = error.name === 'AbortError'
-          ? 'The recipient cancelled the save dialog.'
-          : `Could not prepare the file: ${error.message}`;
-        if (progressInfo && progressInfo.setStatus) progressInfo.setStatus(reason);
-        setConnectionStatus(reason, true);
+      progressInfo = {
+        progress: { max: payload.size || 1, value: 0 },
+        status: canStreamToDisk ? 'Waiting to save to disk.' : 'Waiting for file data.'
+      };
+      state.incomingFile = {
+        id: payload.id,
+        name: fileName,
+        size: payload.size,
+        type: typeof payload.mime === 'string' ? payload.mime.slice(0, 120) : '',
+        writable,
+        chunks: [],
+        received: 0,
+        nextSequence: 0,
+        totalChunks: null,
+        started: false,
+        progressInfo
+      };
+      state.incomingOffer = null;
+      appendChatItem(
+        `Automatically receiving "${fileName}" (${formatSize(payload.size)}).${memoryNote}`,
+        false,
+        progressInfo
+      );
+      await sendData({ type: 'file-response', id: payload.id, accepted: true });
+    } catch (error) {
+      state.incomingOffer = null;
+      if (writable) {
         try {
-          await sendData({ type: 'file-response', id: payload.id, accepted: false, reason });
-        } catch (sendError) {
-          setConnectionStatus(`Could not notify the sender: ${sendError.message}`, true);
+          await writable.abort();
+        } catch (abortError) {
+          setConnectionStatus(`Could not cancel the save: ${abortError.message}`, true);
         }
       }
-    };
-    accept.addEventListener('click', () => {
-      respond(true).catch((error) => setConnectionStatus(error.message, true));
-    }, { once: true });
-    reject.addEventListener('click', () => {
-      respond(false).catch((error) => setConnectionStatus(error.message, true));
-    }, { once: true });
+      state.incomingFile = null;
+      const reason = `Could not prepare the file: ${error.message}`;
+      if (progressInfo && progressInfo.setStatus) progressInfo.setStatus(reason);
+      setConnectionStatus(reason, true);
+      try {
+        await sendData({ type: 'file-response', id: payload.id, accepted: false, reason });
+      } catch (sendError) {
+        setConnectionStatus(`Could not notify the sender: ${sendError.message}`, true);
+      }
+    }
+  }
+
+  async function createUniqueFileHandle(directory, name) {
+    const safeName = safeFileName(name);
+    const extensionIndex = safeName.lastIndexOf('.');
+    const baseName = extensionIndex > 0 ? safeName.slice(0, extensionIndex) : safeName;
+    const extension = extensionIndex > 0 ? safeName.slice(extensionIndex) : '';
+    for (let suffix = 0; suffix < 10000; suffix += 1) {
+      const candidate = suffix === 0 ? safeName : `${baseName} (${suffix})${extension}`;
+      try {
+        await directory.getFileHandle(candidate);
+      } catch (error) {
+        if (error.name !== 'NotFoundError') throw error;
+        return directory.getFileHandle(candidate, { create: true });
+      }
+    }
+    throw new Error('Could not create a unique file name in the save folder.');
   }
 
   function resolveFileOffer(payload) {
@@ -734,7 +747,7 @@
       }, 5 * 60 * 1000);
     });
     state.pendingTransfer = transfer;
-    const progressInfo = { progress: { max: file.size || 1, value: 0 }, status: 'Waiting for acceptance.' };
+    const progressInfo = { progress: { max: file.size || 1, value: 0 }, status: 'Waiting for recipient…' };
     appendChatItem(`Offering "${file.name}" (${formatSize(file.size)}).`, true, progressInfo);
     try {
       await sendData({
@@ -911,6 +924,20 @@
   document.querySelector('#create-room').addEventListener('click', startHostRoom);
   document.querySelector('#join-form').addEventListener('submit', joinRoom);
   document.querySelector('#leave-room').addEventListener('click', stopRoom);
+  if (typeof window.showDirectoryPicker === 'function') {
+    setStatus(autoSaveStatus, 'Choose a folder once for this page session. Incoming files will then be automatically accepted and saved there.');
+    autoSaveFolderButton.addEventListener('click', () => {
+      chooseAutoSaveFolder().catch((error) => {
+        setStatus(autoSaveStatus, `Could not enable auto-save: ${error.message}`, true);
+      });
+    });
+  } else {
+    autoSaveFolderButton.hidden = true;
+    setStatus(
+      autoSaveStatus,
+      'This browser cannot save directly to a chosen folder. Files will be automatically accepted into memory, so very large transfers may fail if memory runs low.'
+    );
+  }
   document.querySelector('#chat-form').addEventListener('submit', (event) => {
     event.preventDefault();
     const text = messageInput.value.trim();
