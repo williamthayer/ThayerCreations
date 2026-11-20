@@ -37,6 +37,9 @@
   const CHUNK_SIZE = 16 * 1024;
   const FILE_ACK_INTERVAL = 16;
   const MAX_DIRECT_DOWNLOAD_SIZE = 25 * 1024 * 1024;
+  const MAX_QUEUE_PREVIEW_FILES = 20;
+  const ROOM_SESSION_KEY = 'thayer-creations-chat-share-room-v1';
+  const JOIN_RETRY_INTERVAL = 5000;
   const config = window.THAYER_CREATIONS_SUPABASE || {};
   const client = window.supabase && config.url && config.anonKey
     ? window.supabase.createClient(config.url, config.anonKey)
@@ -70,11 +73,22 @@
     channel: null,
     peer: null,
     dataChannel: null,
+    peerAttempt: -1,
+    nextPeerAttempt: 0,
+    remotePeerId: '',
+    joinId: '',
+    joinRestartRequested: false,
+    joinRetryTimer: null,
+    incomingSignalQueue: Promise.resolve(),
     acceptedPeer: false,
     remoteDescriptionSet: false,
     queuedCandidates: [],
     outgoingQueue: [],
     outgoingQueueRunning: false,
+    outgoingQueueUpdate: Promise.resolve(),
+    outgoingQueueRevision: 0,
+    peerQueueRevision: -1,
+    peerQueueItem: null,
     pendingTransfer: null,
     pendingAck: null,
     activeOutgoingTransfer: null,
@@ -204,10 +218,19 @@
 
   function markPeerConnected() {
     clearTimeout(state.connectTimeout);
+    clearInterval(state.joinRetryTimer);
+    state.joinRetryTimer = null;
+    state.joinRestartRequested = false;
     messageInput.disabled = false;
     fileInput.disabled = false;
     sendButton.disabled = false;
     setConnectionStatus('Connected. Messages and files use AES-GCM and WebRTC encryption.');
+  }
+
+  function disablePeerActions() {
+    messageInput.disabled = true;
+    fileInput.disabled = true;
+    sendButton.disabled = true;
   }
 
   function showActiveView(role) {
@@ -330,9 +353,11 @@
       const channel = makeChannel(roomId);
       state.channel = channel;
       channel.on('broadcast', { event: 'signal' }, ({ payload }) => {
-        handleSignal(payload).catch((error) => {
-          setConnectionStatus(`Connection setup failed: ${error.message}`, true);
-        });
+        state.incomingSignalQueue = state.incomingSignalQueue
+          .then(() => state.channel === channel ? handleSignal(payload) : undefined)
+          .catch((error) => {
+            if (state.channel === channel) setConnectionStatus(`Connection setup failed: ${error.message}`, true);
+          });
       });
       let settled = false;
       const timeout = setTimeout(() => {
@@ -360,22 +385,34 @@
     if (result !== 'ok') throw new Error(`Could not send connection details (${result}).`);
   }
 
-  function createPeerConnection() {
+  function createPeerConnection(attempt) {
     const peer = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
     state.peer = peer;
+    state.peerAttempt = attempt;
     peer.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendSignal({ type: 'candidate', candidate: event.candidate.toJSON() }).catch((error) => {
+      if (event.candidate && state.peer === peer) {
+        sendSignal({ type: 'candidate', attempt, candidate: event.candidate.toJSON() }).catch((error) => {
           setConnectionStatus(`Could not exchange connection details: ${error.message}`, true);
         });
       }
     };
     peer.onconnectionstatechange = () => {
+      if (state.peer !== peer || state.stopped) return;
       if (peer.connectionState === 'failed') {
+        disablePeerActions();
         setConnectionStatus('Could not establish a direct connection. Check your network connection and make sure both peers are still in the room.', true);
+        if (state.role === 'host' && state.remotePeerId) {
+          startHostNegotiation(state.remotePeerId).catch((error) => {
+            setConnectionStatus(`Could not restart the connection: ${error.message}`, true);
+          });
+        } else if (state.role === 'guest') {
+          requestHostJoin(true);
+          ensureJoinRetries();
+        }
       } else if (peer.connectionState === 'disconnected') {
+        disablePeerActions();
         setConnectionStatus('Connection interrupted. Waiting for the peer to reconnect.', true);
       } else if (peer.connectionState === 'connected') {
         if (state.dataChannel?.readyState === 'open') {
@@ -390,6 +427,7 @@
       configureDataChannel(state.dataChannel);
     } else {
       peer.ondatachannel = (event) => {
+        if (state.peer !== peer || state.stopped) return;
         state.dataChannel = event.channel;
         configureDataChannel(event.channel);
       };
@@ -397,22 +435,66 @@
     return peer;
   }
 
+  async function startHostNegotiation(peerId) {
+    if (state.stopped || state.role !== 'host' || !peerId) return;
+    disablePeerActions();
+    state.remotePeerId = peerId;
+    const attempt = ++state.nextPeerAttempt;
+    state.remoteDescriptionSet = false;
+    state.queuedCandidates = [];
+    const previousPeer = state.peer;
+    state.peer = null;
+    state.dataChannel = null;
+    if (previousPeer) previousPeer.close();
+
+    const peer = createPeerConnection(attempt);
+    setConnectionStatus('Negotiating a new encrypted connection…');
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    if (state.peer !== peer || state.stopped) return;
+    await sendSignal({ type: 'offer', attempt, description: peer.localDescription });
+  }
+
+  function requestHostJoin(restart = false) {
+    if (state.role !== 'guest' || !state.joinId || state.stopped) return;
+    if (restart && !state.joinRestartRequested) {
+      state.joinId = crypto.randomUUID();
+      state.joinRestartRequested = true;
+    }
+    sendSignal({ type: 'join', peerId: state.joinId }).catch((error) => {
+      setConnectionStatus(`Could not request a new connection: ${error.message}`, true);
+    });
+  }
+
+  function ensureJoinRetries() {
+    if (state.joinRetryTimer || state.role !== 'guest' || state.stopped) return;
+    state.joinRetryTimer = setInterval(() => {
+      if (state.dataChannel?.readyState !== 'open') requestHostJoin();
+    }, JOIN_RETRY_INTERVAL);
+  }
+
   function configureDataChannel(channel) {
     channel.bufferedAmountLowThreshold = 512 * 1024;
     channel.onopen = () => {
+      if (state.dataChannel !== channel || state.stopped) return;
       markPeerConnected();
       messageInput.focus();
     };
     channel.onclose = () => {
-      messageInput.disabled = true;
-      fileInput.disabled = true;
-      sendButton.disabled = true;
+      if (state.dataChannel !== channel || state.stopped) return;
+      disablePeerActions();
       setConnectionStatus('The peer connection closed.', true);
+      if (state.role === 'guest') {
+        requestHostJoin(true);
+        ensureJoinRetries();
+      }
     };
     channel.onerror = () => {
+      if (state.dataChannel !== channel || state.stopped) return;
       setConnectionStatus('The encrypted data channel reported an error.', true);
     };
     channel.onmessage = (event) => {
+      if (state.dataChannel !== channel || state.stopped) return;
       state.incomingMessageQueue = state.incomingMessageQueue
         .then(() => handleDataMessage(event))
         .catch(async (error) => {
@@ -425,43 +507,79 @@
   async function handleSignal(payload) {
     if (!payload || typeof payload.type !== 'string' || state.stopped) return;
     if (state.role === 'host' && payload.type === 'join') {
-      if (state.acceptedPeer) return;
-      state.acceptedPeer = true;
-      setConnectionStatus('Room code matched. Negotiating an encrypted connection…');
-      const peer = createPeerConnection();
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-      await sendSignal({ type: 'offer', description: peer.localDescription });
-      return;
-    }
-    if (state.role === 'host' && payload.type === 'answer' && state.acceptedPeer) {
-      await state.peer.setRemoteDescription(payload.description);
-      state.remoteDescriptionSet = true;
-      await flushCandidates();
-      return;
-    }
-    if (state.role === 'guest' && payload.type === 'offer' && state.peer && !state.peer.remoteDescription) {
-      await state.peer.setRemoteDescription(payload.description);
-      state.remoteDescriptionSet = true;
-      await flushCandidates();
-      const answer = await state.peer.createAnswer();
-      await state.peer.setLocalDescription(answer);
-      await sendSignal({ type: 'answer', description: state.peer.localDescription });
-      return;
-    }
-    if (payload.type === 'candidate' && state.peer && payload.candidate) {
-      if (!state.remoteDescriptionSet) {
-        state.queuedCandidates.push(payload.candidate);
-      } else {
-        await state.peer.addIceCandidate(payload.candidate);
+      if (typeof payload.peerId !== 'string' || !/^[a-f0-9-]{20,60}$/.test(payload.peerId)) return;
+      const peerState = state.peer && state.peer.connectionState;
+      if (state.acceptedPeer && payload.peerId === state.remotePeerId &&
+          peerState !== 'failed' && peerState !== 'closed') {
+        if (state.peer && state.peer.localDescription &&
+            state.peer.localDescription.type === 'offer' &&
+            state.dataChannel?.readyState !== 'open') {
+          await sendSignal({
+            type: 'offer',
+            attempt: state.peerAttempt,
+            description: state.peer.localDescription
+          });
+        }
+        return;
       }
+      state.acceptedPeer = true;
+      await startHostNegotiation(payload.peerId);
+      return;
+    }
+    if (state.role === 'host' && payload.type === 'answer' && state.acceptedPeer &&
+        payload.attempt === state.peerAttempt && state.peer && !state.peer.remoteDescription) {
+      await state.peer.setRemoteDescription(payload.description);
+      state.remoteDescriptionSet = true;
+      await flushCandidates(payload.attempt);
+      return;
+    }
+    if (state.role === 'guest' && payload.type === 'offer' &&
+        Number.isSafeInteger(payload.attempt) && payload.attempt > 0) {
+      if (payload.attempt < state.peerAttempt) return;
+      if (payload.attempt === state.peerAttempt && state.peer && state.peer.remoteDescription) {
+        if (state.peer.localDescription && state.peer.localDescription.type === 'answer') {
+          await sendSignal({ type: 'answer', attempt: payload.attempt, description: state.peer.localDescription });
+        }
+        return;
+      }
+      const previousPeer = state.peer;
+      state.peer = null;
+      state.dataChannel = null;
+      disablePeerActions();
+      state.remoteDescriptionSet = false;
+      state.joinRestartRequested = false;
+      state.queuedCandidates = state.queuedCandidates.filter((candidate) => candidate.attempt >= payload.attempt);
+      if (previousPeer) previousPeer.close();
+      const peer = createPeerConnection(payload.attempt);
+      await peer.setRemoteDescription(payload.description);
+      if (state.peer !== peer || state.stopped) return;
+      state.remoteDescriptionSet = true;
+      await flushCandidates(payload.attempt);
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      if (state.peer !== peer || state.stopped) return;
+      await sendSignal({ type: 'answer', attempt: payload.attempt, description: peer.localDescription });
+      return;
+    }
+    if (payload.type === 'candidate' && Number.isSafeInteger(payload.attempt) && payload.candidate) {
+      if (payload.attempt < state.peerAttempt) return;
+      if (!state.peer || payload.attempt > state.peerAttempt || !state.remoteDescriptionSet) {
+        state.queuedCandidates.push({ attempt: payload.attempt, candidate: payload.candidate });
+        return;
+      }
+      if (payload.attempt !== state.peerAttempt) return;
+      await state.peer.addIceCandidate(payload.candidate);
     }
   }
 
-  async function flushCandidates() {
+  async function flushCandidates(attempt) {
     const candidates = state.queuedCandidates.splice(0);
-    for (const candidate of candidates) {
-      await state.peer.addIceCandidate(candidate);
+    for (const entry of candidates) {
+      if (entry.attempt > attempt) {
+        state.queuedCandidates.push(entry);
+      } else if (entry.attempt === attempt && state.peer && state.peerAttempt === attempt) {
+        await state.peer.addIceCandidate(entry.candidate);
+      }
     }
   }
 
@@ -568,6 +686,8 @@
     if (!payload || typeof payload.type !== 'string') return;
     if (payload.type === 'message' && typeof payload.text === 'string' && payload.text.length <= 4000) {
       appendChatItem(payload.text);
+    } else if (payload.type === 'file-queue') {
+      updatePeerFileQueue(payload);
     } else if (payload.type === 'file-offer') {
       await receiveFileOffer(payload);
     } else if (payload.type === 'file-response') {
@@ -582,6 +702,38 @@
     } else if (payload.type === 'file-end') {
       await finishReceivingFile(payload);
     }
+  }
+
+  function updatePeerFileQueue(payload) {
+    if (!Number.isSafeInteger(payload.revision) || payload.revision < 0 ||
+        !Number.isSafeInteger(payload.total) || payload.total < 0 ||
+        !Array.isArray(payload.files) || payload.files.length > MAX_QUEUE_PREVIEW_FILES ||
+        payload.files.length > payload.total ||
+        !payload.files.every((file) => file && typeof file.name === 'string' &&
+          file.name.length <= 255 && Number.isSafeInteger(file.size) && file.size >= 0)) {
+      throw new Error('Received invalid file queue information.');
+    }
+    if (payload.revision <= state.peerQueueRevision) return;
+    state.peerQueueRevision = payload.revision;
+
+    if (payload.total === 0) {
+      if (state.peerQueueItem) {
+        state.peerQueueItem.remove();
+        state.peerQueueItem = null;
+      }
+      return;
+    }
+
+    const queuedFiles = payload.files.map((file) => `${file.name} (${formatSize(file.size)})`);
+    const remaining = payload.total - queuedFiles.length;
+    const summary = `Peer has ${payload.total} file${payload.total === 1 ? '' : 's'} queued: ${queuedFiles.join(', ')}${remaining ? `, and ${remaining} more` : ''}.`;
+    if (!state.peerQueueItem) {
+      state.peerQueueItem = appendChatItem(summary);
+      return;
+    }
+    state.peerQueueItem.querySelector('p').textContent = summary;
+    chatLog.append(state.peerQueueItem);
+    chatLog.scrollTop = chatLog.scrollHeight;
   }
 
   async function receiveFileOffer(payload) {
@@ -696,6 +848,12 @@
     pending.resolve({ accepted: Boolean(payload.accepted), reason: payload.reason });
   }
 
+  function updateIncomingTransferSpeed(file) {
+    const elapsedSeconds = Math.max((performance.now() - file.startedAt) / 1000, 1);
+    const activity = file.writable ? 'Saving to disk' : 'Receiving file data';
+    file.progressInfo.setStatus(`${activity}… ${formatSize(file.received / elapsedSeconds)}/s`);
+  }
+
   function startReceivingFile(payload) {
     const file = state.incomingFile;
     const expectedChunks = file ? Math.ceil(file.size / CHUNK_SIZE) : -1;
@@ -705,7 +863,9 @@
     }
     file.started = true;
     file.totalChunks = payload.totalChunks;
-    file.progressInfo.setStatus(file.writable ? 'Saving to disk…' : 'Receiving file data…');
+    file.startedAt = performance.now();
+    updateIncomingTransferSpeed(file);
+    file.speedTimer = setInterval(() => updateIncomingTransferSpeed(file), 1000);
   }
 
   async function receiveFileChunk(data, transfer) {
@@ -723,6 +883,7 @@
     file.received += data.byteLength;
     file.nextSequence += 1;
     file.progressInfo.setProgress(file.received);
+    updateIncomingTransferSpeed(file);
     if (file.nextSequence % FILE_ACK_INTERVAL === 0 || transfer.final) {
       await sendData({ type: 'file-ack', id: file.id, sequence: transfer.sequence });
     }
@@ -735,6 +896,7 @@
         file.nextSequence !== file.totalChunks) {
       throw new Error('The file transfer was incomplete.');
     }
+    if (file.speedTimer) clearInterval(file.speedTimer);
     if (file.writable) {
       await file.writable.close();
       file.progressInfo.setStatus('Saved to disk.');
@@ -758,6 +920,7 @@
     const file = state.incomingFile;
     if (!file) return;
     state.incomingFile = null;
+    if (file.speedTimer) clearInterval(file.speedTimer);
     file.progressInfo.setStatus(`Transfer failed: ${reason}`);
     if (file.writable) {
       try {
@@ -874,6 +1037,28 @@
     });
   }
 
+  function publishOutgoingQueue() {
+    const dataChannel = state.dataChannel;
+    const payload = {
+      type: 'file-queue',
+      revision: ++state.outgoingQueueRevision,
+      total: state.outgoingQueue.length,
+      files: state.outgoingQueue.slice(0, MAX_QUEUE_PREVIEW_FILES).map(({ file }) => ({
+        name: file.name.slice(0, 255),
+        size: file.size
+      }))
+    };
+    state.outgoingQueueUpdate = state.outgoingQueueUpdate.then(async () => {
+      if (state.stopped || state.dataChannel !== dataChannel) return;
+      await sendData(payload);
+    }).catch((error) => {
+      if (!state.stopped && state.dataChannel === dataChannel) {
+        setConnectionStatus(`Could not update the peer's file queue: ${error.message}`, true);
+      }
+    });
+    return state.outgoingQueueUpdate;
+  }
+
   function queueFiles(files) {
     files.forEach((file) => {
       if (!Number.isSafeInteger(file.size)) {
@@ -897,10 +1082,12 @@
         if (index === -1) return;
         state.outgoingQueue.splice(index, 1);
         item.progressInfo.setStatus('Cancelled before sending.');
+        void publishOutgoingQueue();
       };
       appendChatItem(`Queued "${file.name}" (${formatSize(file.size)}).`, true, item.progressInfo);
       state.outgoingQueue.push(item);
     });
+    void publishOutgoingQueue();
     void processOutgoingQueue();
   }
 
@@ -910,6 +1097,8 @@
     try {
       while (state.outgoingQueue.length && !state.stopped) {
         const item = state.outgoingQueue.shift();
+        await publishOutgoingQueue();
+        if (state.stopped) break;
         item.progressInfo.setStatus('Waiting for recipient…');
         await sendFile(item.file, item);
       }
@@ -992,18 +1181,55 @@
     }
   }
 
-  async function startHostRoom() {
+  function persistRoomSession(role, code) {
+    try {
+      sessionStorage.setItem(ROOM_SESSION_KEY, JSON.stringify({ role, code }));
+    } catch (error) {
+      setConnectionStatus(`This tab could not remember the room for reload recovery: ${error.message}`, true);
+    }
+  }
+
+  function clearPersistedRoomSession() {
+    try {
+      sessionStorage.removeItem(ROOM_SESSION_KEY);
+    } catch (error) {
+      setConnectionStatus(`Could not clear the saved room: ${error.message}`, true);
+    }
+  }
+
+  function restoreRoomSession() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(ROOM_SESSION_KEY) || 'null');
+      if (!saved) return null;
+      const code = normalizeCode(typeof saved.code === 'string' ? saved.code : '');
+      if (!code || !['host', 'guest'].includes(saved.role)) {
+        sessionStorage.removeItem(ROOM_SESSION_KEY);
+        return null;
+      }
+      return { role: saved.role, code };
+    } catch (error) {
+      setStatus(createStatus, `Could not restore the previous room: ${error.message}`, true);
+      return null;
+    }
+  }
+
+  async function startHostRoom(resumeCode = '') {
     if (!window.isSecureContext || !window.RTCPeerConnection || !crypto.subtle) {
       setStatus(createStatus, 'This feature requires a secure HTTPS page and a modern browser.', true);
       return;
     }
     try {
-      const code = makePairingCode();
+      const code = resumeCode || makePairingCode();
       const credentials = await deriveRoomCredentials(code);
       cryptoKey = credentials.key;
       state.stopped = false;
       state.role = 'host';
       state.roomId = credentials.roomId;
+      state.acceptedPeer = false;
+      state.remotePeerId = '';
+      state.nextPeerAttempt = 0;
+      state.peerAttempt = -1;
+      persistRoomSession('host', code);
       showActiveView('host');
       inviteBox.hidden = false;
       inviteCode.textContent = code;
@@ -1016,9 +1242,9 @@
     }
   }
 
-  async function joinRoom(event) {
-    event.preventDefault();
-    const code = normalizeCode(document.querySelector('#join-code').value);
+  async function joinRoom(event, resumeCode = '') {
+    if (event) event.preventDefault();
+    const code = resumeCode || normalizeCode(document.querySelector('#join-code').value);
     if (!code) {
       setStatus(joinStatus, 'Enter two words followed by three numbers, such as ember-orbit-482.', true);
       return;
@@ -1031,6 +1257,11 @@
     joinButton.disabled = true;
     state.stopped = false;
     state.role = 'guest';
+    state.joinId = crypto.randomUUID();
+    state.joinRestartRequested = false;
+    state.peerAttempt = -1;
+    state.remotePeerId = '';
+    persistRoomSession('guest', code);
     showActiveView('guest');
     inviteBox.hidden = false;
     inviteCode.textContent = code;
@@ -1039,13 +1270,13 @@
       const credentials = await deriveRoomCredentials(code);
       state.roomId = credentials.roomId;
       cryptoKey = credentials.key;
-      createPeerConnection();
       await subscribeToChannel(state.roomId);
-      await sendSignal({ type: 'join' });
+      requestHostJoin();
+      ensureJoinRetries();
       setConnectionStatus('Waiting for the host to connect…');
       state.connectTimeout = setTimeout(() => {
         if (state.dataChannel?.readyState !== 'open') {
-          setConnectionStatus('No matching host responded. Check the code and that the host is still in the room.', true);
+          setConnectionStatus('Still waiting for the host. Check that the host reopened this room with the same code.', true);
         }
       }, 60000);
     } catch (error) {
@@ -1059,6 +1290,8 @@
     state.stopped = true;
     setScreenAwake(false);
     clearTimeout(state.connectTimeout);
+    clearInterval(state.joinRetryTimer);
+    state.joinRetryTimer = null;
     if (state.pendingAck) {
       const pending = state.pendingAck;
       pending.error = 'The room was closed.';
@@ -1069,10 +1302,13 @@
       }
     }
     if (state.activeOutgoingTransfer) state.activeOutgoingTransfer.abortReason = 'The room was closed.';
-    if (state.incomingFile && state.incomingFile.writable) {
-      state.incomingFile.writable.abort().catch((error) => {
-        setConnectionStatus(`Could not cancel the incomplete file: ${error.message}`, true);
-      });
+    if (state.incomingFile) {
+      if (state.incomingFile.speedTimer) clearInterval(state.incomingFile.speedTimer);
+      if (state.incomingFile.writable) {
+        state.incomingFile.writable.abort().catch((error) => {
+          setConnectionStatus(`Could not cancel the incomplete file: ${error.message}`, true);
+        });
+      }
     }
     if (state.peer) state.peer.close();
     if (state.channel && client) {
@@ -1094,6 +1330,11 @@
     state.channel = null;
     state.peer = null;
     state.dataChannel = null;
+    state.peerAttempt = -1;
+    state.nextPeerAttempt = 0;
+    state.remotePeerId = '';
+    state.joinId = '';
+    state.joinRestartRequested = false;
     state.acceptedPeer = false;
     state.remoteDescriptionSet = false;
     state.pendingTransfer = null;
@@ -1102,6 +1343,8 @@
     state.outgoingQueue = [];
     state.incomingOffer = null;
     state.incomingFile = null;
+    state.peerQueueRevision = -1;
+    state.peerQueueItem = null;
     state.queuedCandidates = [];
     inviteBox.hidden = true;
     inviteCode.textContent = '';
@@ -1117,10 +1360,11 @@
     activeView.hidden = true;
     setStatus(createStatus, '');
     setStatus(joinStatus, '');
+    clearPersistedRoomSession();
   }
 
-  document.querySelector('#create-room').addEventListener('click', startHostRoom);
-  document.querySelector('#join-form').addEventListener('submit', joinRoom);
+  document.querySelector('#create-room').addEventListener('click', () => { void startHostRoom(); });
+  document.querySelector('#join-form').addEventListener('submit', (event) => { void joinRoom(event); });
   document.querySelector('#leave-room').addEventListener('click', stopRoom);
   wakeLockToggle.addEventListener('click', () => {
     setScreenAwake(!keepScreenAwake);
@@ -1194,4 +1438,15 @@
     document.querySelector('#join-room').disabled = true;
   }
   if (!navigator.clipboard) copyCodeButton.disabled = true;
+  if (config.url && config.anonKey) {
+    const savedRoom = restoreRoomSession();
+    if (savedRoom) {
+      if (savedRoom.role === 'host') {
+        void startHostRoom(savedRoom.code);
+      } else {
+        document.querySelector('#join-code').value = savedRoom.code;
+        void joinRoom(null, savedRoom.code);
+      }
+    }
+  }
 })();
