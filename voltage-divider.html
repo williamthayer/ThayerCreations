@@ -242,6 +242,13 @@
         return value.toFixed(2);
       }
 
+      function formatPower(watts) {
+        if (watts >= 1) return `${format(watts)} W`;
+        if (watts >= 0.001) return `${format(watts * 1000)} mW`;
+        if (watts >= 0.000001) return `${format(watts * 1000000)} uW`;
+        return `${format(watts * 1000000000)} nW`;
+      }
+
       function valuesMatchRounded(left, right) {
         return format(left) === format(right);
       }
@@ -282,7 +289,7 @@
         resultText.value = '';
       }
 
-      function buildResultText(output, drop, toleranceResults) {
+      function buildResultText(output, drop, toleranceResults, powerResults) {
         const resistorUnit = unit.value === '1000000' ? 'MΩ' : unit.value === '1000' ? 'kΩ' : 'Ω';
         const resistorMultiplier = Number(unit.value);
         const matchesSeries = resistorFields.every((field) =>
@@ -293,6 +300,7 @@
           `Input voltage: ${format(Number(inputs.inputVoltage.value))} V`,
           `R1: ${format(Number(inputs.r1.value))} ${resistorUnit}`,
           `R2: ${format(Number(inputs.r2.value))} ${resistorUnit}`,
+          `Total power dissipation: ${formatPower(powerResults.total)}`,
           `Output voltage: ${format(output)} V`,
           `Percentage drop: ${format(drop)}%`,
           `Resistor tolerance: ±${format(Number(resistorTolerance.value))}%`,
@@ -386,6 +394,12 @@
           };
           toleranceResults.lowerPercent = (output - toleranceResults.minimum) / output * 100;
           toleranceResults.upperPercent = (toleranceResults.maximum - output) / output * 100;
+          const dividerCurrent = values.inputVoltage / (values.r1 + values.r2);
+          const powerResults = {
+            r1: dividerCurrent * dividerCurrent * values.r1,
+            r2: dividerCurrent * dividerCurrent * values.r2,
+            total: dividerCurrent * dividerCurrent * (values.r1 + values.r2)
+          };
           const multiplier = Number(unit.value);
           for (const key of missing) {
             inputs[key].value = format(values[key] / (key === 'inputVoltage' ? 1 : multiplier));
@@ -399,7 +413,7 @@
             generated.add('drop');
           }
           updateTargetState();
-          resultText.value = buildResultText(output, drop, toleranceResults);
+          resultText.value = buildResultText(output, drop, toleranceResults, powerResults);
           resultPanel.hidden = false;
           setStatus('Calculation complete. Results are ready to copy.', false);
         } catch (error) {
