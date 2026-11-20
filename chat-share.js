@@ -85,10 +85,14 @@
     queuedCandidates: [],
     outgoingQueue: [],
     outgoingQueueRunning: false,
+    preparingOutgoingItem: null,
     outgoingQueueUpdate: Promise.resolve(),
     outgoingQueueRevision: 0,
     peerQueueRevision: -1,
     peerQueueItem: null,
+    peerQueueFiles: [],
+    peerQueueTotal: 0,
+    pendingQueueCancelRequests: new Map(),
     pendingTransfer: null,
     pendingAck: null,
     activeOutgoingTransfer: null,
@@ -688,6 +692,10 @@
       appendChatItem(payload.text);
     } else if (payload.type === 'file-queue') {
       updatePeerFileQueue(payload);
+    } else if (payload.type === 'file-queue-cancel') {
+      await cancelQueuedOutgoingFile(payload);
+    } else if (payload.type === 'file-queue-cancel-result') {
+      resolvePeerQueueCancellation(payload);
     } else if (payload.type === 'file-offer') {
       await receiveFileOffer(payload);
     } else if (payload.type === 'file-response') {
@@ -709,31 +717,98 @@
         !Number.isSafeInteger(payload.total) || payload.total < 0 ||
         !Array.isArray(payload.files) || payload.files.length > MAX_QUEUE_PREVIEW_FILES ||
         payload.files.length > payload.total ||
-        !payload.files.every((file) => file && typeof file.name === 'string' &&
+        !payload.files.every((file) => file && typeof file.id === 'string' &&
+          /^[a-f0-9-]{20,60}$/.test(file.id) && typeof file.name === 'string' &&
           file.name.length <= 255 && Number.isSafeInteger(file.size) && file.size >= 0)) {
       throw new Error('Received invalid file queue information.');
     }
     if (payload.revision <= state.peerQueueRevision) return;
     state.peerQueueRevision = payload.revision;
+    state.peerQueueFiles = payload.files;
+    state.peerQueueTotal = payload.total;
+    renderPeerFileQueue();
+  }
 
-    if (payload.total === 0) {
-      if (state.peerQueueItem) {
-        state.peerQueueItem.remove();
-        state.peerQueueItem = null;
-      }
+  function renderPeerFileQueue() {
+    if (state.peerQueueTotal === 0) {
+      if (state.peerQueueItem) state.peerQueueItem.remove();
+      state.peerQueueItem = null;
+      if (!chatLog.querySelector('.chat-item')) chatEmpty.hidden = false;
       return;
     }
 
-    const queuedFiles = payload.files.map((file) => `${file.name} (${formatSize(file.size)})`);
-    const remaining = payload.total - queuedFiles.length;
-    const summary = `Peer has ${payload.total} file${payload.total === 1 ? '' : 's'} queued: ${queuedFiles.join(', ')}${remaining ? `, and ${remaining} more` : ''}.`;
+    const queuedFiles = state.peerQueueFiles.map((file) => `${file.name} (${formatSize(file.size)})`);
+    const remaining = state.peerQueueTotal - queuedFiles.length;
+    const summary = `Peer has ${state.peerQueueTotal} file${state.peerQueueTotal === 1 ? '' : 's'} queued${remaining ? ` (${remaining} more not shown)` : ''}.`;
     if (!state.peerQueueItem) {
       state.peerQueueItem = appendChatItem(summary);
-      return;
+    } else {
+      state.peerQueueItem.querySelector('p').textContent = summary;
+      chatLog.append(state.peerQueueItem);
     }
-    state.peerQueueItem.querySelector('p').textContent = summary;
-    chatLog.append(state.peerQueueItem);
+    let list = state.peerQueueItem.querySelector('.peer-file-queue');
+    if (!list) {
+      list = document.createElement('ul');
+      list.className = 'peer-file-queue';
+      state.peerQueueItem.append(list);
+    }
+    list.replaceChildren();
+    state.peerQueueFiles.forEach((file) => {
+      const entry = document.createElement('li');
+      entry.className = 'peer-queue-entry';
+      const name = document.createElement('span');
+      name.className = 'peer-queue-name';
+      name.textContent = `${file.name} (${formatSize(file.size)})`;
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'secondary-button transfer-cancel peer-queue-cancel';
+      const requestPending = Array.from(state.pendingQueueCancelRequests.values())
+        .some((request) => request.queueId === file.id);
+      cancel.disabled = requestPending;
+      cancel.textContent = requestPending ? 'Canceling…' : 'Cancel';
+      cancel.setAttribute('aria-label', `Cancel queued file ${file.name}`);
+      cancel.addEventListener('click', () => { void requestPeerQueueCancellation(file, entry, cancel); });
+      entry.append(name, cancel);
+      list.append(entry);
+    });
     chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  async function requestPeerQueueCancellation(file, entry, button) {
+    const requestId = crypto.randomUUID();
+    const request = { queueId: file.id, name: file.name, entry, timeout: null };
+    request.timeout = setTimeout(() => {
+      if (state.pendingQueueCancelRequests.get(requestId) !== request) return;
+      state.pendingQueueCancelRequests.delete(requestId);
+      setConnectionStatus('The peer did not confirm the queued-file cancellation. Try again.', true);
+      renderPeerFileQueue();
+    }, 15000);
+    state.pendingQueueCancelRequests.set(requestId, request);
+    button.disabled = true;
+    button.textContent = 'Canceling…';
+    try {
+      await sendData({ type: 'file-queue-cancel', requestId, queueId: file.id });
+    } catch (error) {
+      clearTimeout(request.timeout);
+      state.pendingQueueCancelRequests.delete(requestId);
+      setConnectionStatus(`Could not cancel the queued file: ${error.message}`, true);
+      renderPeerFileQueue();
+    }
+  }
+
+  function resolvePeerQueueCancellation(payload) {
+    if (typeof payload.requestId !== 'string' || typeof payload.queueId !== 'string' ||
+        typeof payload.cancelled !== 'boolean') {
+      throw new Error('Received an invalid queued-file cancellation response.');
+    }
+    const request = state.pendingQueueCancelRequests.get(payload.requestId);
+    if (!request || request.queueId !== payload.queueId) return;
+    clearTimeout(request.timeout);
+    state.pendingQueueCancelRequests.delete(payload.requestId);
+    request.entry.remove();
+    if (!payload.cancelled) {
+      appendChatItem(`"${request.name}" has already started and can no longer be cancelled from the queue.`);
+    }
   }
 
   async function receiveFileOffer(payload) {
@@ -849,9 +924,13 @@
   }
 
   function updateIncomingTransferSpeed(file) {
-    const elapsedSeconds = Math.max((performance.now() - file.startedAt) / 1000, 1);
     const activity = file.writable ? 'Saving to disk' : 'Receiving file data';
-    file.progressInfo.setStatus(`${activity}… ${formatSize(file.received / elapsedSeconds)}/s`);
+    file.progressInfo.setStatus(formatTransferProgress(
+      `${activity}…`,
+      file.received,
+      file.size,
+      file.startedAt
+    ));
   }
 
   function startReceivingFile(payload) {
@@ -1001,6 +1080,28 @@
     return `${unit === 0 ? size : size.toFixed(1)} ${units[unit]}`;
   }
 
+  function formatTransferProgress(activity, transferred, total, startedAt) {
+    const elapsedSeconds = Math.max((performance.now() - startedAt) / 1000, 1);
+    const bytesPerSecond = transferred / elapsedSeconds;
+    const remaining = Math.max(0, total - transferred);
+    const eta = bytesPerSecond > 0
+      ? formatDuration(remaining / bytesPerSecond)
+      : 'calculating…';
+    return `${activity} ${formatSize(bytesPerSecond)}/s · ETA ${eta}`;
+  }
+
+  function formatDuration(seconds) {
+    const totalSeconds = Math.max(0, Math.ceil(seconds));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const remainingSeconds = totalSeconds % 60;
+    const formattedMinutes = String(minutes).padStart(2, '0');
+    const formattedSeconds = String(remainingSeconds).padStart(2, '0');
+    return hours
+      ? `${hours}:${formattedMinutes}:${formattedSeconds}`
+      : `${minutes}:${formattedSeconds}`;
+  }
+
   function waitForBuffer(channel) {
     if (channel.bufferedAmount <= MAX_BUFFERED_AMOUNT) return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -1043,7 +1144,8 @@
       type: 'file-queue',
       revision: ++state.outgoingQueueRevision,
       total: state.outgoingQueue.length,
-      files: state.outgoingQueue.slice(0, MAX_QUEUE_PREVIEW_FILES).map(({ file }) => ({
+      files: state.outgoingQueue.slice(0, MAX_QUEUE_PREVIEW_FILES).map(({ id, file }) => ({
+        id,
         name: file.name.slice(0, 255),
         size: file.size
       }))
@@ -1059,6 +1161,31 @@
     return state.outgoingQueueUpdate;
   }
 
+  async function cancelQueuedOutgoingFile(payload) {
+    if (typeof payload.requestId !== 'string' || !/^[a-f0-9-]{20,60}$/.test(payload.requestId) ||
+        typeof payload.queueId !== 'string' || !/^[a-f0-9-]{20,60}$/.test(payload.queueId)) {
+      throw new Error('Received an invalid queued-file cancellation request.');
+    }
+    let cancelled = false;
+    const index = state.outgoingQueue.findIndex((item) => item.id === payload.queueId);
+    if (index !== -1) {
+      const [item] = state.outgoingQueue.splice(index, 1);
+      item.progressInfo.setStatus('Cancelled by the recipient.');
+      cancelled = true;
+    } else if (state.preparingOutgoingItem && state.preparingOutgoingItem.id === payload.queueId) {
+      state.preparingOutgoingItem.cancelled = true;
+      state.preparingOutgoingItem.progressInfo.setStatus('Cancelled by the recipient.');
+      cancelled = true;
+    }
+    await publishOutgoingQueue();
+    await sendData({
+      type: 'file-queue-cancel-result',
+      requestId: payload.requestId,
+      queueId: payload.queueId,
+      cancelled
+    });
+  }
+
   function queueFiles(files) {
     files.forEach((file) => {
       if (!Number.isSafeInteger(file.size)) {
@@ -1066,6 +1193,7 @@
         return;
       }
       const item = {
+        id: crypto.randomUUID(),
         file,
         transfer: null,
         progressInfo: {
@@ -1079,7 +1207,13 @@
           return;
         }
         const index = state.outgoingQueue.indexOf(item);
-        if (index === -1) return;
+        if (index === -1) {
+          if (state.preparingOutgoingItem === item) {
+            item.cancelled = true;
+            item.progressInfo.setStatus('Cancelled before sending.');
+          }
+          return;
+        }
         state.outgoingQueue.splice(index, 1);
         item.progressInfo.setStatus('Cancelled before sending.');
         void publishOutgoingQueue();
@@ -1097,8 +1231,17 @@
     try {
       while (state.outgoingQueue.length && !state.stopped) {
         const item = state.outgoingQueue.shift();
+        state.preparingOutgoingItem = item;
         await publishOutgoingQueue();
-        if (state.stopped) break;
+        if (state.stopped) {
+          state.preparingOutgoingItem = null;
+          break;
+        }
+        if (item.cancelled) {
+          state.preparingOutgoingItem = null;
+          continue;
+        }
+        state.preparingOutgoingItem = null;
         item.progressInfo.setStatus('Waiting for recipient…');
         await sendFile(item.file, item);
       }
@@ -1136,14 +1279,13 @@
         return;
       }
       state.activeOutgoingTransfer = transfer;
-      progressInfo.setStatus('Sending… 0 B/s');
+      progressInfo.setStatus('Sending… 0 B/s · ETA calculating…');
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       await sendData({ type: 'file-start', id, size: file.size, totalChunks });
       const sendingStartedAt = performance.now();
       let bytesSent = 0;
       const updateTransferSpeed = () => {
-        const elapsedSeconds = Math.max((performance.now() - sendingStartedAt) / 1000, 1);
-        progressInfo.setStatus(`Sending… ${formatSize(bytesSent / elapsedSeconds)}/s`);
+        progressInfo.setStatus(formatTransferProgress('Sending…', bytesSent, file.size, sendingStartedAt));
       };
       speedTimer = setInterval(updateTransferSpeed, 1000);
       for (let sequence = 0, offset = 0; offset < file.size; sequence += 1, offset += CHUNK_SIZE) {
@@ -1341,10 +1483,15 @@
     state.pendingAck = null;
     state.activeOutgoingTransfer = null;
     state.outgoingQueue = [];
+    state.preparingOutgoingItem = null;
     state.incomingOffer = null;
     state.incomingFile = null;
     state.peerQueueRevision = -1;
     state.peerQueueItem = null;
+    state.peerQueueFiles = [];
+    state.peerQueueTotal = 0;
+    state.pendingQueueCancelRequests.forEach((request) => clearTimeout(request.timeout));
+    state.pendingQueueCancelRequests.clear();
     state.queuedCandidates = [];
     inviteBox.hidden = true;
     inviteCode.textContent = '';
