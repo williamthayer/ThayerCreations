@@ -73,6 +73,8 @@
     acceptedPeer: false,
     remoteDescriptionSet: false,
     queuedCandidates: [],
+    outgoingQueue: [],
+    outgoingQueueRunning: false,
     pendingTransfer: null,
     pendingAck: null,
     activeOutgoingTransfer: null,
@@ -507,7 +509,7 @@
         const hideCancel = fileInfo.setStatus;
         fileInfo.setStatus = (value) => {
           hideCancel(value);
-          if (!/^Waiting for recipient|^Waiting to save|^Waiting for file data|^Sending|^Receiving file data|^Saving to disk/.test(value)) {
+          if (!/^Queued|^Waiting for recipient|^Waiting to save|^Waiting for file data|^Sending|^Receiving file data|^Saving to disk/.test(value)) {
             actions.hidden = true;
           }
         };
@@ -872,19 +874,55 @@
     });
   }
 
-  async function sendFile(file) {
-    if (!Number.isSafeInteger(file.size)) {
-      setConnectionStatus('This file is too large for the browser to transfer safely.', true);
-      fileInput.value = '';
-      return;
+  function queueFiles(files) {
+    files.forEach((file) => {
+      if (!Number.isSafeInteger(file.size)) {
+        setConnectionStatus(`"${file.name}" is too large for the browser to transfer safely.`, true);
+        return;
+      }
+      const item = {
+        file,
+        transfer: null,
+        progressInfo: {
+          progress: { max: file.size || 1, value: 0 },
+          status: 'Queued for sending…'
+        }
+      };
+      item.progressInfo.cancel = () => {
+        if (item.transfer) {
+          cancelOutgoingTransfer(item.transfer, 'Transfer cancelled.');
+          return;
+        }
+        const index = state.outgoingQueue.indexOf(item);
+        if (index === -1) return;
+        state.outgoingQueue.splice(index, 1);
+        item.progressInfo.setStatus('Cancelled before sending.');
+      };
+      appendChatItem(`Queued "${file.name}" (${formatSize(file.size)}).`, true, item.progressInfo);
+      state.outgoingQueue.push(item);
+    });
+    void processOutgoingQueue();
+  }
+
+  async function processOutgoingQueue() {
+    if (state.outgoingQueueRunning) return;
+    state.outgoingQueueRunning = true;
+    try {
+      while (state.outgoingQueue.length && !state.stopped) {
+        const item = state.outgoingQueue.shift();
+        item.progressInfo.setStatus('Waiting for recipient…');
+        await sendFile(item.file, item);
+      }
+    } finally {
+      state.outgoingQueueRunning = false;
+      if (state.outgoingQueue.length && !state.stopped) void processOutgoingQueue();
     }
-    if (state.pendingTransfer || state.activeOutgoingTransfer) {
-      setConnectionStatus('Wait for the current file offer to finish first.', true);
-      fileInput.value = '';
-      return;
-    }
+  }
+
+  async function sendFile(file, item) {
     const id = crypto.randomUUID();
     const transfer = { id, resolve: null, timeout: null };
+    item.transfer = transfer;
     const response = new Promise((resolve, reject) => {
       transfer.resolve = resolve;
       transfer.timeout = setTimeout(() => {
@@ -893,11 +931,8 @@
       }, 5 * 60 * 1000);
     });
     state.pendingTransfer = transfer;
-    const progressInfo = { progress: { max: file.size || 1, value: 0 }, status: 'Waiting for recipient…' };
-    progressInfo.cancel = () => {
-      cancelOutgoingTransfer(transfer, 'Transfer cancelled.');
-    };
-    appendChatItem(`Offering "${file.name}" (${formatSize(file.size)}).`, true, progressInfo);
+    const progressInfo = item.progressInfo;
+    let speedTimer = null;
     try {
       await sendData({
         type: 'file-offer',
@@ -912,9 +947,16 @@
         return;
       }
       state.activeOutgoingTransfer = transfer;
-      progressInfo.setStatus('Sending…');
+      progressInfo.setStatus('Sending… 0 B/s');
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       await sendData({ type: 'file-start', id, size: file.size, totalChunks });
+      const sendingStartedAt = performance.now();
+      let bytesSent = 0;
+      const updateTransferSpeed = () => {
+        const elapsedSeconds = Math.max((performance.now() - sendingStartedAt) / 1000, 1);
+        progressInfo.setStatus(`Sending… ${formatSize(bytesSent / elapsedSeconds)}/s`);
+      };
+      speedTimer = setInterval(updateTransferSpeed, 1000);
       for (let sequence = 0, offset = 0; offset < file.size; sequence += 1, offset += CHUNK_SIZE) {
         if (transfer.abortReason) throw new Error(transfer.abortReason);
         const chunk = await file.slice(offset, offset + CHUNK_SIZE).arrayBuffer();
@@ -924,7 +966,9 @@
         await waitForBuffer(state.dataChannel);
         if (state.dataChannel.readyState !== 'open') throw new Error('The peer connection closed during transfer.');
         await sendBinaryData(chunk, id, sequence, isFinal);
+        bytesSent += chunk.byteLength;
         progressInfo.setProgress(Math.min(offset + chunk.byteLength, file.size));
+        updateTransferSpeed();
         if (pendingAck) await waitForFileAck(pendingAck);
         if (transfer.abortReason) throw new Error(transfer.abortReason);
       }
@@ -942,8 +986,9 @@
         clearTimeout(pending.timeout);
         if (pending.reject) pending.reject(new Error('File transfer ended before acknowledgement.'));
       }
+      if (speedTimer !== null) clearInterval(speedTimer);
       clearTimeout(transfer.timeout);
-      fileInput.value = '';
+      item.transfer = null;
     }
   }
 
@@ -1054,6 +1099,7 @@
     state.pendingTransfer = null;
     state.pendingAck = null;
     state.activeOutgoingTransfer = null;
+    state.outgoingQueue = [];
     state.incomingOffer = null;
     state.incomingFile = null;
     state.queuedCandidates = [];
@@ -1127,8 +1173,9 @@
     }
   });
   fileInput.addEventListener('change', () => {
-    const [file] = fileInput.files;
-    if (file) sendFile(file);
+    const files = Array.from(fileInput.files);
+    fileInput.value = '';
+    if (files.length) queueFiles(files);
   });
   copyCodeButton.addEventListener('click', async () => {
     try {
