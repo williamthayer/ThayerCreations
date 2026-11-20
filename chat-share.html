@@ -95,6 +95,8 @@
     .file-label { min-height: 40px; padding: 11px; display: inline-flex; align-items: center; border: 1px solid var(--line); color: var(--green); cursor: pointer; font: 9px var(--mono); text-transform: uppercase; }
     .file-label:hover { border-color: var(--green); }
     .transfer-progress { width: 100%; height: 6px; margin-top: 8px; accent-color: var(--green); }
+    .transfer-actions { margin-top: 7px; display: flex; }
+    .transfer-cancel { min-height: 32px; padding: 6px 10px; }
     .download-link { display: inline-block; margin-top: 8px; color: var(--green); font: 10px var(--mono); text-underline-offset: 3px; }
     .security-note { margin: 20px 0 0; padding: 14px 16px; border-left: 2px solid var(--green); background: #e9ece6; color: var(--muted); font-size: 11px; line-height: 1.7; }
     .security-note strong { color: var(--ink); }
@@ -117,7 +119,7 @@
   </style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script defer src="./supabase-config.js"></script>
-  <script defer src="./chat-share.js?v=wake-lock-switch-2026-11"></script>
+  <script defer src="./chat-share.js?v=reconnect-status-2026-11"></script>
   <script defer src="./brand.js"></script>
 </head>
 <body>

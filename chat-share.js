@@ -200,6 +200,14 @@
     setStatus(connectionStatus, message, isError);
   }
 
+  function markPeerConnected() {
+    clearTimeout(state.connectTimeout);
+    messageInput.disabled = false;
+    fileInput.disabled = false;
+    sendButton.disabled = false;
+    setConnectionStatus('Connected. Messages and files use AES-GCM and WebRTC encryption.');
+  }
+
   function showActiveView(role) {
     createView.hidden = true;
     joinView.hidden = true;
@@ -367,8 +375,12 @@
         setConnectionStatus('Could not establish a direct connection. Check your network connection and make sure both peers are still in the room.', true);
       } else if (peer.connectionState === 'disconnected') {
         setConnectionStatus('Connection interrupted. Waiting for the peer to reconnect.', true);
-      } else if (peer.connectionState === 'connected' && state.dataChannel?.readyState !== 'open') {
-        setConnectionStatus('Peer connection established; opening chat…');
+      } else if (peer.connectionState === 'connected') {
+        if (state.dataChannel?.readyState === 'open') {
+          markPeerConnected();
+        } else {
+          setConnectionStatus('Peer connection established; opening chat…');
+        }
       }
     };
     if (state.role === 'host') {
@@ -386,11 +398,7 @@
   function configureDataChannel(channel) {
     channel.bufferedAmountLowThreshold = 512 * 1024;
     channel.onopen = () => {
-      clearTimeout(state.connectTimeout);
-      messageInput.disabled = false;
-      fileInput.disabled = false;
-      sendButton.disabled = false;
-      setConnectionStatus('Connected. Messages and files use AES-GCM and WebRTC encryption.');
+      markPeerConnected();
       messageInput.focus();
     };
     channel.onclose = () => {
@@ -483,6 +491,27 @@
         item.append(status);
         fileInfo.setStatus = (value) => { status.textContent = value; };
       }
+      if (fileInfo.cancel) {
+        const actions = document.createElement('div');
+        actions.className = 'transfer-actions';
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'secondary-button transfer-cancel';
+        cancelButton.textContent = 'Cancel';
+        cancelButton.addEventListener('click', () => {
+          cancelButton.disabled = true;
+          fileInfo.cancel();
+        });
+        actions.append(cancelButton);
+        item.append(actions);
+        const hideCancel = fileInfo.setStatus;
+        fileInfo.setStatus = (value) => {
+          hideCancel(value);
+          if (!/^Waiting for recipient|^Waiting to save|^Waiting for file data|^Sending|^Receiving file data|^Saving to disk/.test(value)) {
+            actions.hidden = true;
+          }
+        };
+      }
       if (fileInfo.download) {
         const link = document.createElement('a');
         link.className = 'download-link';
@@ -547,6 +576,7 @@
       resolveFileAck(payload);
     } else if (payload.type === 'file-abort') {
       abortOutgoingTransfer(payload);
+      await abortIncomingFile(payload.reason || 'The sender cancelled the transfer.', false);
     } else if (payload.type === 'file-end') {
       await finishReceivingFile(payload);
     }
@@ -609,6 +639,9 @@
         progressInfo
       };
       state.incomingOffer = null;
+      progressInfo.cancel = () => {
+        void abortIncomingFile('The receiver cancelled the transfer.');
+      };
       appendChatItem(
         `Automatically receiving "${fileName}" (${formatSize(payload.size)}).${memoryNote}`,
         false,
@@ -719,7 +752,7 @@
     return sanitized || 'shared-file';
   }
 
-  async function abortIncomingFile(reason) {
+  async function abortIncomingFile(reason, notifyPeer = true) {
     const file = state.incomingFile;
     if (!file) return;
     state.incomingFile = null;
@@ -731,10 +764,12 @@
         setConnectionStatus(`Could not discard the incomplete file: ${error.message}`, true);
       }
     }
-    try {
-      await sendData({ type: 'file-abort', id: file.id, reason: reason.slice(0, 200) });
-    } catch (error) {
-      setConnectionStatus(`Could not notify the sender: ${error.message}`, true);
+    if (notifyPeer) {
+      try {
+        await sendData({ type: 'file-abort', id: file.id, reason: reason.slice(0, 200) });
+      } catch (error) {
+        setConnectionStatus(`Could not notify the sender: ${error.message}`, true);
+      }
     }
   }
 
@@ -816,6 +851,27 @@
     });
   }
 
+  function cancelOutgoingTransfer(transfer, reason) {
+    transfer.abortReason = reason;
+    if (state.pendingTransfer === transfer) {
+      clearTimeout(transfer.timeout);
+      state.pendingTransfer = null;
+      transfer.resolve({ accepted: false, reason });
+    }
+    const pending = state.pendingAck;
+    if (pending && pending.id === transfer.id) {
+      pending.error = reason;
+      if (pending.reject) {
+        state.pendingAck = null;
+        clearTimeout(pending.timeout);
+        pending.reject(new Error(reason));
+      }
+    }
+    void sendData({ type: 'file-abort', id: transfer.id, reason }).catch((error) => {
+      setConnectionStatus(`Could not notify the receiver: ${error.message}`, true);
+    });
+  }
+
   async function sendFile(file) {
     if (!Number.isSafeInteger(file.size)) {
       setConnectionStatus('This file is too large for the browser to transfer safely.', true);
@@ -838,6 +894,9 @@
     });
     state.pendingTransfer = transfer;
     const progressInfo = { progress: { max: file.size || 1, value: 0 }, status: 'Waiting for recipient…' };
+    progressInfo.cancel = () => {
+      cancelOutgoingTransfer(transfer, 'Transfer cancelled.');
+    };
     appendChatItem(`Offering "${file.name}" (${formatSize(file.size)}).`, true, progressInfo);
     try {
       await sendData({
