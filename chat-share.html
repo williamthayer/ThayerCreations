@@ -63,6 +63,9 @@
     .field input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 0; background: #fff; font: 14px var(--sans); letter-spacing: normal; text-transform: none; }
     .field input::placeholder { color: #9da49e; }
     .join-form { max-width: 380px; display: grid; gap: 13px; }
+    .create-room-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+    .buffer-size-field { min-width: 180px; }
+    .buffer-size-field select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 0; background: #fff; font: 12px var(--sans); }
     .form-status, .connection-status { min-height: 20px; margin: 12px 0 0; color: var(--green); font-size: 12px; line-height: 1.6; }
     .form-status[data-error="true"], .connection-status[data-error="true"] { color: var(--red); }
     .invite-box { margin-top: 20px; padding: 16px; border: 1px solid var(--line); background: #fafbf8; }
@@ -125,7 +128,7 @@
   </style>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script defer src="./supabase-config.js"></script>
-  <script defer src="./chat-share.js?v=transfer-throughput-2026-11"></script>
+  <script defer src="./chat-share.js?v=host-buffer-presets-16mib-2026-11"></script>
   <script defer src="./brand.js"></script>
 </head>
 <body>
@@ -163,7 +166,16 @@
     <section class="panel" id="create-view" aria-labelledby="create-heading">
       <h2 id="create-heading">Start a share chat</h2>
       <p class="panel-copy">Generate a one-time code to share verbally or in a separate message. The other person can enter it below on this same page.</p>
-      <button class="primary-button" id="create-room" type="button">Generate code</button>
+      <div class="create-room-actions">
+        <button class="primary-button" id="create-room" type="button">Generate code</button>
+        <label class="field buffer-size-field" for="buffer-size">Transfer buffer
+          <select id="buffer-size" name="buffer-size">
+            <option value="small">Small · 2 MiB</option>
+            <option value="medium" selected>Medium · 4 MiB</option>
+            <option value="large">Large · 16 MiB</option>
+          </select>
+        </label>
+      </div>
       <p class="form-status" id="create-status" role="status" aria-live="polite"></p>
     </section>
 

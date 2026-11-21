@@ -33,10 +33,14 @@
     'compass', 'dandelion', 'daybreak', 'firefly', 'footpath', 'hammock', 'heather', 'hourglass',
     'marsh', 'oatmeal', 'pavilion', 'rainfall', 'redwood', 'seaspray', 'snowdrop', 'woodland'
   ];
-  const MAX_BUFFERED_AMOUNT = 4 * 1024 * 1024;
-  const BUFFERED_AMOUNT_LOW_THRESHOLD = 2 * 1024 * 1024;
+  const BUFFER_PROFILES = {
+    small: { maxBufferedAmount: 2 * 1024 * 1024, ackInterval: 32 },
+    medium: { maxBufferedAmount: 4 * 1024 * 1024, ackInterval: 64 },
+    large: { maxBufferedAmount: 16 * 1024 * 1024, ackInterval: 256 }
+  };
+  const DEFAULT_BUFFER_PROFILE = 'medium';
+  const BUFFERED_AMOUNT_LOW_THRESHOLD = BUFFER_PROFILES[DEFAULT_BUFFER_PROFILE].maxBufferedAmount / 2;
   const CHUNK_SIZE = 32 * 1024;
-  const FILE_ACK_INTERVAL = 64;
   const MAX_DIRECT_DOWNLOAD_SIZE = 25 * 1024 * 1024;
   const MAX_QUEUE_PREVIEW_FILES = 20;
   const ROOM_SESSION_KEY = 'thayer-creations-chat-share-room-v1';
@@ -50,6 +54,7 @@
   const joinView = document.querySelector('#join-view');
   const activeView = document.querySelector('#active-view');
   const createStatus = document.querySelector('#create-status');
+  const bufferSizeSelect = document.querySelector('#buffer-size');
   const joinStatus = document.querySelector('#join-status');
   const connectionStatus = document.querySelector('#connection-status');
   const inviteBox = document.querySelector('#invite-box');
@@ -72,6 +77,7 @@
   let wakeLockRequestPending = false;
   const state = {
     role: '',
+    bufferProfile: DEFAULT_BUFFER_PROFILE,
     roomId: '',
     channel: null,
     peer: null,
@@ -110,6 +116,10 @@
     connectionScrolled: false,
     stopped: false
   };
+
+  function getBufferProfile(name) {
+    return Object.prototype.hasOwnProperty.call(BUFFER_PROFILES, name) ? BUFFER_PROFILES[name] : null;
+  }
 
   function setStatus(element, message, isError = false) {
     element.textContent = message;
@@ -963,6 +973,17 @@
       });
       return;
     }
+    const bufferProfileName = state.role === 'host' ? state.bufferProfile : payload.bufferProfile;
+    const bufferProfile = getBufferProfile(bufferProfileName);
+    if (!bufferProfile) {
+      await sendData({
+        type: 'file-response',
+        id: payload.id,
+        accepted: false,
+        reason: 'The host selected an unsupported transfer buffer size. Refresh both pages and try again.'
+      });
+      return;
+    }
     const canChooseSaveFolder = typeof window.showDirectoryPicker === 'function';
     const canDownloadWithoutFolder = payload.size < MAX_DIRECT_DOWNLOAD_SIZE;
     if (canChooseSaveFolder && !state.saveDirectoryHandle && !canDownloadWithoutFolder) {
@@ -996,6 +1017,8 @@
         name: fileName,
         size: payload.size,
         type: typeof payload.mime === 'string' ? payload.mime.slice(0, 120) : '',
+        chunkSize: CHUNK_SIZE,
+        ackInterval: bufferProfile.ackInterval,
         writable,
         chunks: [],
         received: 0,
@@ -1013,7 +1036,12 @@
         false,
         progressInfo
       );
-      await sendData({ type: 'file-response', id: payload.id, accepted: true });
+      await sendData({
+        type: 'file-response',
+        id: payload.id,
+        accepted: true,
+        bufferProfile: bufferProfileName
+      });
     } catch (error) {
       state.incomingOffer = null;
       if (writable) {
@@ -1057,7 +1085,11 @@
     const pending = state.pendingTransfer;
     state.pendingTransfer = null;
     clearTimeout(pending.timeout);
-    pending.resolve({ accepted: Boolean(payload.accepted), reason: payload.reason });
+    pending.resolve({
+      accepted: Boolean(payload.accepted),
+      reason: payload.reason,
+      bufferProfile: payload.bufferProfile
+    });
   }
 
   function updateIncomingTransferSpeed(file) {
@@ -1072,8 +1104,9 @@
 
   function startReceivingFile(payload) {
     const file = state.incomingFile;
-    const expectedChunks = file ? Math.ceil(file.size / CHUNK_SIZE) : -1;
+    const expectedChunks = file ? Math.ceil(file.size / file.chunkSize) : -1;
     if (!file || payload.id !== file.id || payload.size !== file.size ||
+        payload.chunkSize !== file.chunkSize || payload.ackInterval !== file.ackInterval ||
         payload.totalChunks !== expectedChunks) {
       throw new Error('The incoming file did not match its offer.');
     }
@@ -1090,7 +1123,7 @@
     const expectedFinal = file && file.nextSequence === file.totalChunks - 1;
     if (!file || !file.started || transfer.id !== file.id ||
         transfer.sequence !== file.nextSequence || transfer.final !== expectedFinal ||
-      data.byteLength !== Math.min(CHUNK_SIZE, file.size - file.received) ||
+      data.byteLength !== Math.min(file.chunkSize, file.size - file.received) ||
       file.received + data.byteLength > file.size) {
       throw new Error('The received file chunk is out of order or exceeds the offered size.');
     }
@@ -1100,7 +1133,7 @@
     file.nextSequence += 1;
     file.progressInfo.setProgress(file.received);
     updateIncomingTransferSpeed(file);
-    if (file.nextSequence % FILE_ACK_INTERVAL === 0 || transfer.final) {
+    if (file.nextSequence % file.ackInterval === 0 || transfer.final) {
       await sendData({ type: 'file-ack', id: file.id, sequence: transfer.sequence });
     }
   }
@@ -1240,8 +1273,8 @@
       : `${minutes}:${formattedSeconds}`;
   }
 
-  function waitForBuffer(channel) {
-    if (channel.bufferedAmount <= MAX_BUFFERED_AMOUNT) return Promise.resolve();
+  function waitForBuffer(channel, bufferProfile) {
+    if (channel.bufferedAmount <= bufferProfile.maxBufferedAmount) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         channel.removeEventListener('bufferedamountlow', onLow);
@@ -1392,6 +1425,7 @@
 
   async function sendFile(file, item) {
     const id = crypto.randomUUID();
+    const offeredBufferProfile = state.role === 'host' ? state.bufferProfile : DEFAULT_BUFFER_PROFILE;
     const transfer = { id, resolve: null, timeout: null };
     item.transfer = transfer;
     const response = new Promise((resolve, reject) => {
@@ -1410,17 +1444,33 @@
         id,
         name: file.name.slice(0, 255),
         size: file.size,
-        mime: file.type.slice(0, 120)
+        mime: file.type.slice(0, 120),
+        bufferProfile: offeredBufferProfile
       });
       const decision = await response;
       if (!decision.accepted) {
         progressInfo.setStatus(decision.reason || 'The peer declined this file.');
         return;
       }
+      const bufferProfileName = state.role === 'host' ? offeredBufferProfile : decision.bufferProfile;
+      const bufferProfile = getBufferProfile(bufferProfileName);
+      if (!bufferProfile) {
+        const reason = 'The host selected an unsupported transfer buffer size. Refresh both pages and try again.';
+        await sendData({ type: 'file-abort', id, reason });
+        throw new Error(reason);
+      }
       state.activeOutgoingTransfer = transfer;
       progressInfo.setStatus('Sending… 0 B/s · ETA calculating…');
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-      await sendData({ type: 'file-start', id, size: file.size, totalChunks });
+      state.dataChannel.bufferedAmountLowThreshold = bufferProfile.maxBufferedAmount / 2;
+      await sendData({
+        type: 'file-start',
+        id,
+        size: file.size,
+        totalChunks,
+        chunkSize: CHUNK_SIZE,
+        ackInterval: bufferProfile.ackInterval
+      });
       const sendingStartedAt = performance.now();
       let bytesSent = 0;
       const updateTransferSpeed = () => {
@@ -1431,9 +1481,9 @@
         if (transfer.abortReason) throw new Error(transfer.abortReason);
         const chunk = await file.slice(offset, offset + CHUNK_SIZE).arrayBuffer();
         const isFinal = sequence === totalChunks - 1;
-        const shouldWaitForAck = (sequence + 1) % FILE_ACK_INTERVAL === 0 || isFinal;
+        const shouldWaitForAck = (sequence + 1) % bufferProfile.ackInterval === 0 || isFinal;
         const pendingAck = shouldWaitForAck ? prepareFileAck(id, sequence) : null;
-        await waitForBuffer(state.dataChannel);
+        await waitForBuffer(state.dataChannel, bufferProfile);
         if (state.dataChannel.readyState !== 'open') throw new Error('The peer connection closed during transfer.');
         await sendBinaryData(chunk, id, sequence, isFinal);
         bytesSent += chunk.byteLength;
@@ -1463,9 +1513,9 @@
     }
   }
 
-  function persistRoomSession(role, code) {
+  function persistRoomSession(role, code, bufferProfile = DEFAULT_BUFFER_PROFILE) {
     try {
-      sessionStorage.setItem(ROOM_SESSION_KEY, JSON.stringify({ role, code }));
+      sessionStorage.setItem(ROOM_SESSION_KEY, JSON.stringify({ role, code, bufferProfile }));
     } catch (error) {
       setConnectionStatus(`This tab could not remember the room for reload recovery: ${error.message}`, true);
     }
@@ -1488,14 +1538,15 @@
         sessionStorage.removeItem(ROOM_SESSION_KEY);
         return null;
       }
-      return { role: saved.role, code };
+      const bufferProfile = getBufferProfile(saved.bufferProfile) ? saved.bufferProfile : DEFAULT_BUFFER_PROFILE;
+      return { role: saved.role, code, bufferProfile };
     } catch (error) {
       setStatus(createStatus, `Could not restore the previous room: ${error.message}`, true);
       return null;
     }
   }
 
-  async function startHostRoom(resumeCode = '') {
+  async function startHostRoom(resumeCode = '', resumeBufferProfile = DEFAULT_BUFFER_PROFILE) {
     if (!window.isSecureContext || !window.RTCPeerConnection || !crypto.subtle) {
       setStatus(createStatus, 'This feature requires a secure HTTPS page and a modern browser.', true);
       return;
@@ -1506,12 +1557,15 @@
       cryptoKey = credentials.key;
       state.stopped = false;
       state.role = 'host';
+      state.bufferProfile = resumeCode ? resumeBufferProfile : bufferSizeSelect.value;
+      if (!getBufferProfile(state.bufferProfile)) state.bufferProfile = DEFAULT_BUFFER_PROFILE;
+      bufferSizeSelect.value = state.bufferProfile;
       state.roomId = credentials.roomId;
       state.acceptedPeer = false;
       state.remotePeerId = '';
       state.nextPeerAttempt = 0;
       state.peerAttempt = -1;
-      persistRoomSession('host', code);
+      persistRoomSession('host', code, state.bufferProfile);
       showActiveView('host');
       inviteBox.hidden = false;
       inviteCode.textContent = code;
@@ -1539,6 +1593,7 @@
     joinButton.disabled = true;
     state.stopped = false;
     state.role = 'guest';
+    state.bufferProfile = DEFAULT_BUFFER_PROFILE;
     state.joinId = crypto.randomUUID();
     state.joinRestartRequested = false;
     state.peerAttempt = -1;
@@ -1742,7 +1797,7 @@
     const savedRoom = restoreRoomSession();
     if (savedRoom) {
       if (savedRoom.role === 'host') {
-        void startHostRoom(savedRoom.code);
+        void startHostRoom(savedRoom.code, savedRoom.bufferProfile);
       } else {
         document.querySelector('#join-code').value = savedRoom.code;
         void joinRoom(null, savedRoom.code);
