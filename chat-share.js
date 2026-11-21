@@ -36,7 +36,7 @@
   const BUFFER_PROFILES = {
     small: { maxBufferedAmount: 2 * 1024 * 1024, ackInterval: 32 },
     medium: { maxBufferedAmount: 4 * 1024 * 1024, ackInterval: 64 },
-    large: { maxBufferedAmount: 16 * 1024 * 1024, ackInterval: 256 }
+    large: { maxBufferedAmount: 8 * 1024 * 1024, ackInterval: 128 }
   };
   const DEFAULT_BUFFER_PROFILE = 'medium';
   const BUFFERED_AMOUNT_LOW_THRESHOLD = BUFFER_PROFILES[DEFAULT_BUFFER_PROFILE].maxBufferedAmount / 2;
