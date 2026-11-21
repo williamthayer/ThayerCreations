@@ -53,6 +53,7 @@
   const connectionStatus = document.querySelector('#connection-status');
   const inviteBox = document.querySelector('#invite-box');
   const inviteCode = document.querySelector('#invite-code');
+  const chatShell = document.querySelector('.chat-shell');
   const chatLog = document.querySelector('#chat-log');
   const chatEmpty = document.querySelector('#chat-empty');
   const chatForm = document.querySelector('#chat-form');
@@ -106,6 +107,7 @@
     incomingMessageQueue: Promise.resolve(),
     connectTimeout: null,
     objectUrls: [],
+    conversationCentered: false,
     stopped: false
   };
 
@@ -224,6 +226,11 @@
     setStatus(connectionStatus, message, isError);
   }
 
+  function scrollElementIntoView(element, block) {
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    element.scrollIntoView({ behavior, block });
+  }
+
   function markPeerConnected() {
     clearTimeout(state.connectTimeout);
     clearInterval(state.joinRetryTimer);
@@ -233,6 +240,10 @@
     fileInput.disabled = false;
     sendButton.disabled = false;
     setConnectionStatus('Connected. Messages and files use AES-GCM and WebRTC encryption.');
+    if (!state.conversationCentered) {
+      state.conversationCentered = true;
+      requestAnimationFrame(() => scrollElementIntoView(chatShell, 'center'));
+    }
   }
 
   function disablePeerActions() {
@@ -1624,6 +1635,7 @@
     state.queuedCandidates = [];
     inviteBox.hidden = true;
     inviteCode.textContent = '';
+    state.conversationCentered = false;
     messageInput.disabled = true;
     fileInput.disabled = true;
     sendButton.disabled = true;
@@ -1737,4 +1749,7 @@
       }
     }
   }
+  requestAnimationFrame(() => {
+    if (activeView.hidden) scrollElementIntoView(createView, 'start');
+  });
 })();
