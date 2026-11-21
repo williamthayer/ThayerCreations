@@ -33,9 +33,10 @@
     'compass', 'dandelion', 'daybreak', 'firefly', 'footpath', 'hammock', 'heather', 'hourglass',
     'marsh', 'oatmeal', 'pavilion', 'rainfall', 'redwood', 'seaspray', 'snowdrop', 'woodland'
   ];
-  const MAX_BUFFERED_AMOUNT = 1024 * 1024;
-  const CHUNK_SIZE = 16 * 1024;
-  const FILE_ACK_INTERVAL = 16;
+  const MAX_BUFFERED_AMOUNT = 4 * 1024 * 1024;
+  const BUFFERED_AMOUNT_LOW_THRESHOLD = 2 * 1024 * 1024;
+  const CHUNK_SIZE = 32 * 1024;
+  const FILE_ACK_INTERVAL = 64;
   const MAX_DIRECT_DOWNLOAD_SIZE = 25 * 1024 * 1024;
   const MAX_QUEUE_PREVIEW_FILES = 20;
   const ROOM_SESSION_KEY = 'thayer-creations-chat-share-room-v1';
@@ -53,7 +54,6 @@
   const connectionStatus = document.querySelector('#connection-status');
   const inviteBox = document.querySelector('#invite-box');
   const inviteCode = document.querySelector('#invite-code');
-  const chatShell = document.querySelector('.chat-shell');
   const chatLog = document.querySelector('#chat-log');
   const chatEmpty = document.querySelector('#chat-empty');
   const chatForm = document.querySelector('#chat-form');
@@ -107,7 +107,7 @@
     incomingMessageQueue: Promise.resolve(),
     connectTimeout: null,
     objectUrls: [],
-    conversationCentered: false,
+    connectionScrolled: false,
     stopped: false
   };
 
@@ -240,9 +240,9 @@
     fileInput.disabled = false;
     sendButton.disabled = false;
     setConnectionStatus('Connected. Messages and files use AES-GCM and WebRTC encryption.');
-    if (!state.conversationCentered) {
-      state.conversationCentered = true;
-      requestAnimationFrame(() => scrollElementIntoView(chatShell, 'center'));
+    if (!state.connectionScrolled) {
+      state.connectionScrolled = true;
+      requestAnimationFrame(() => scrollElementIntoView(activeView, 'start'));
     }
   }
 
@@ -609,11 +609,11 @@
   }
 
   function configureDataChannel(channel) {
-    channel.bufferedAmountLowThreshold = 512 * 1024;
+    channel.bufferedAmountLowThreshold = BUFFERED_AMOUNT_LOW_THRESHOLD;
     channel.onopen = () => {
       if (state.dataChannel !== channel || state.stopped) return;
       markPeerConnected();
-      messageInput.focus();
+      messageInput.focus({ preventScroll: true });
     };
     channel.onclose = () => {
       if (state.dataChannel !== channel || state.stopped) return;
@@ -1635,7 +1635,7 @@
     state.queuedCandidates = [];
     inviteBox.hidden = true;
     inviteCode.textContent = '';
-    state.conversationCentered = false;
+    state.connectionScrolled = false;
     messageInput.disabled = true;
     fileInput.disabled = true;
     sendButton.disabled = true;
