@@ -263,10 +263,15 @@
   }
 
   function showActiveView(role) {
+    const scrollPosition = { left: window.scrollX, top: window.scrollY };
     createView.hidden = true;
     joinView.hidden = true;
     activeView.hidden = false;
     document.querySelector('#room-role').textContent = role === 'host' ? 'Invite created' : 'Joining an invite';
+    window.scrollTo({ ...scrollPosition, behavior: 'auto' });
+    requestAnimationFrame(() => {
+      if (!state.connectionScrolled) window.scrollTo({ ...scrollPosition, behavior: 'auto' });
+    });
   }
 
   function updateWakeLockToggle() {
