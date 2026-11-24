@@ -84,8 +84,15 @@
     .formula code { color: var(--ink); font: 11px var(--mono); }
     .results { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
     .results-heading { margin: 0 0 11px; font: 600 18px var(--display); letter-spacing: -.03em; }
-    .result-text { width: 100%; min-height: 143px; padding: 12px; border: 1px solid var(--line); border-radius: 0; background: #fafbf8; color: var(--ink); font: 12px/1.7 var(--mono); resize: vertical; }
+    .results-container { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: start; }
+    .result-text { width: 100%; min-height: 220px; padding: 12px; border: 1px solid var(--line); border-radius: 0; background: #fafbf8; color: var(--ink); font: 12px/1.7 var(--mono); resize: vertical; }
     .copy-button { margin-top: 10px; }
+    .divider-diagram { flex: 0 0 220px; padding: 16px; background: #fafbf8; border: 1px solid var(--line); }
+    .divider-diagram svg { width: 100%; height: auto; display: block; }
+    @media (max-width: 1000px) {
+      .results-container { grid-template-columns: 1fr; }
+      .divider-diagram { flex: 0 0 auto; max-width: 220px; }
+    }
     .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
     @media (max-width: 620px) {
       .site-header { min-height: 65px; padding: 10px 5%; flex-wrap: wrap; gap: 10px; }
@@ -214,8 +221,13 @@
         <p class="status" id="calculator-status" role="status" aria-live="polite"></p>
         <section class="results" id="result-panel" aria-labelledby="results-heading" hidden>
           <h3 class="results-heading" id="results-heading">Copyable results</h3>
-          <textarea class="result-text" id="result-text" rows="6" readonly aria-label="Voltage divider calculation results"></textarea>
-          <button class="secondary-button copy-button" id="copy-results" type="button">Copy results</button>
+          <div class="results-container">
+            <div>
+              <textarea class="result-text" id="result-text" rows="10" readonly aria-label="Voltage divider calculation results"></textarea>
+              <button class="secondary-button copy-button" id="copy-results" type="button">Copy results</button>
+            </div>
+            <div class="divider-diagram" id="divider-diagram-container"></div>
+          </div>
         </section>
       </form>
       <p class="formula">For a standard divider, <code>Vout = Vin × R2 / (R1 + R2)</code>. Choose E3, E6, or E12 when rounding to common resistor values; E6 is selected by default.</p>
@@ -252,6 +264,135 @@
         if (field.value.trim() === '') return null;
         const value = Number(field.value);
         return Number.isFinite(value) ? value : NaN;
+      }
+
+      function buildDividerDiagram(r1Value, r2Value, outputVoltage, inputVoltage) {
+        const diagramContainer = document.getElementById('divider-diagram-container');
+        if (!diagramContainer) return;
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 180 240');
+        svg.setAttribute('style', 'display: block; width: 100%; height: auto;');
+
+        // Helper to create line
+        const createLine = (x1, y1, x2, y2) => {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', x1);
+          line.setAttribute('y1', y1);
+          line.setAttribute('x2', x2);
+          line.setAttribute('y2', y2);
+          line.setAttribute('stroke', 'var(--ink)');
+          line.setAttribute('stroke-width', '1.5');
+          return line;
+        };
+
+        // Helper to create polyline (for zigzag resistor)
+        const createPolyline = (points) => {
+          const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+          polyline.setAttribute('points', points);
+          polyline.setAttribute('fill', 'none');
+          polyline.setAttribute('stroke', 'var(--ink)');
+          polyline.setAttribute('stroke-width', '1.5');
+          return polyline;
+        };
+
+        // Helper to create text
+        const createText = (x, y, text, anchor = 'middle', fontSize = '11') => {
+          const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          t.setAttribute('x', x);
+          t.setAttribute('y', y);
+          t.setAttribute('text-anchor', anchor);
+          t.setAttribute('font-family', 'var(--mono)');
+          t.setAttribute('font-size', fontSize);
+          t.setAttribute('fill', 'var(--ink)');
+          t.textContent = text;
+          return t;
+        };
+
+        // Helper to create circle (for connection points)
+        const createCircle = (cx, cy, r = 2.5) => {
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', cx);
+          circle.setAttribute('cy', cy);
+          circle.setAttribute('r', r);
+          circle.setAttribute('fill', 'var(--ink)');
+          return circle;
+        };
+
+        // Input voltage label
+        svg.appendChild(createText(45, 15, 'Vin', 'start', '10'));
+        svg.appendChild(createText(70, 12, `${format(inputVoltage)}V`, 'start', '9'));
+
+        // Top wire from Vin
+        svg.appendChild(createLine(45, 20, 45, 40));
+        svg.appendChild(createCircle(45, 40));
+
+        // R1 resistor (zigzag symbol)
+        const r1X = 45;
+        const r1TopY = 40;
+        const r1BottomY = 100;
+        const resistorHeight = r1BottomY - r1TopY;
+        
+        // Wire to resistor
+        svg.appendChild(createLine(r1X, r1TopY, r1X, r1TopY + 10));
+        
+        // Zigzag resistor symbol
+        svg.appendChild(createPolyline(
+          `${r1X},${r1TopY + 10} ${r1X - 4},${r1TopY + 15} ${r1X + 4},${r1TopY + 20} ${r1X - 4},${r1TopY + 25} ${r1X + 4},${r1TopY + 30} ${r1X - 4},${r1TopY + 35} ${r1X + 4},${r1TopY + 40} ${r1X},${r1TopY + 45}`
+        ));
+        
+        // Wire from resistor
+        svg.appendChild(createLine(r1X, r1TopY + 45, r1X, r1BottomY));
+        svg.appendChild(createCircle(r1X, r1BottomY));
+        
+        // R1 label
+        svg.appendChild(createText(r1X + 15, r1TopY + 20, `R1`, 'start', '10'));
+        svg.appendChild(createText(r1X + 15, r1TopY + 32, `${format(r1Value)}Ω`, 'start', '8'));
+
+        // R2 resistor (zigzag symbol)
+        const r2X = 45;
+        const r2TopY = 100;
+        const r2BottomY = 160;
+        
+        // Wire to resistor
+        svg.appendChild(createLine(r2X, r2TopY, r2X, r2TopY + 10));
+        
+        // Zigzag resistor symbol
+        svg.appendChild(createPolyline(
+          `${r2X},${r2TopY + 10} ${r2X - 4},${r2TopY + 15} ${r2X + 4},${r2TopY + 20} ${r2X - 4},${r2TopY + 25} ${r2X + 4},${r2TopY + 30} ${r2X - 4},${r2TopY + 35} ${r2X + 4},${r2TopY + 40} ${r2X},${r2TopY + 45}`
+        ));
+        
+        // Wire from resistor
+        svg.appendChild(createLine(r2X, r2TopY + 45, r2X, r2BottomY));
+        svg.appendChild(createCircle(r2X, r2BottomY));
+        
+        // R2 label
+        svg.appendChild(createText(r2X + 15, r2TopY + 20, `R2`, 'start', '10'));
+        svg.appendChild(createText(r2X + 15, r2TopY + 32, `${format(r2Value)}Ω`, 'start', '8'));
+
+        // Ground connection
+        svg.appendChild(createLine(r2X, r2BottomY, r2X, r2BottomY + 15));
+        // Ground symbol (three parallel lines)
+        const groundY = r2BottomY + 15;
+        svg.appendChild(createLine(r2X - 8, groundY, r2X + 8, groundY));
+        svg.appendChild(createLine(r2X - 6, groundY + 4, r2X + 6, groundY + 4));
+        svg.appendChild(createLine(r2X - 4, groundY + 8, r2X + 4, groundY + 8));
+        svg.appendChild(createText(r2X - 15, groundY + 4, 'GND', 'end', '9'));
+
+        // Output voltage tap (from junction of R1 and R2)
+        const outputY = 100;
+        svg.appendChild(createLine(45, outputY, 90, outputY));
+        svg.appendChild(createCircle(90, outputY));
+        svg.appendChild(createText(100, outputY - 8, 'Vout', 'start', '10'));
+        svg.appendChild(createText(100, outputY + 2, `${format(outputVoltage)}V`, 'start', '9'));
+
+        // Output indicator arrow
+        svg.appendChild(createLine(90, outputY, 95, outputY));
+        svg.appendChild(createLine(95, outputY, 92, outputY - 2));
+        svg.appendChild(createLine(95, outputY, 92, outputY + 2));
+
+        diagramContainer.innerHTML = '';
+        diagramContainer.appendChild(svg);
       }
 
       function format(value) {
@@ -430,6 +571,7 @@
           }
           updateTargetState();
           resultText.value = buildResultText(output, drop, toleranceResults, powerResults);
+          buildDividerDiagram(values.r1 / multiplier, values.r2 / multiplier, output, values.inputVoltage);
           resultPanel.hidden = false;
           setStatus('Calculation complete. Results are ready to copy.', false);
         } catch (error) {

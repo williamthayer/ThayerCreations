@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Estimate battery pack voltage, capacity, and current from cell specifications.">
+  <title>Battery Builder — Thayer Creations</title>
+  <link rel="icon" type="image/svg+xml" href="./tc-logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; --paper: #f4f3ee; --surface: #fff; --ink: #1d2723; --muted: #68716b; --line: #d8ddd6; --green: #315a47; --green-dark: #234535; --sans: "DM Sans", sans-serif; --display: Manrope, sans-serif; --mono: "DM Mono", monospace; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    a { color: inherit; }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    button, input, select { font: inherit; }
+    .site-header { min-height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; }
+    .brand-mark { position: relative; width: 35px; height: 35px; padding: 0; display: block; overflow: visible; border: 1px solid #0e5fa8; background: #0e5fa8; cursor: pointer; transform: rotate(-4deg); }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-spark { position: absolute; z-index: 1; top: 50%; left: 50%; width: 2px; height: 8px; border-radius: 2px; background: var(--spark-color); box-shadow: 0 0 5px var(--spark-color); pointer-events: none; animation: logo-spark-flight .42s cubic-bezier(.15,.7,.25,1) forwards; }
+    @keyframes logo-spark-flight { from { opacity: 1; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(0) scaleY(1); } to { opacity: 0; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(calc(var(--spark-distance) * -1)) scaleY(.2); } }
+    .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-decoration: none; text-transform: uppercase; }
+    .header-links { display: flex; align-items: center; gap: 25px; }
+    .header-links a { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .header-links a:hover, .header-links a[aria-current="page"] { color: var(--green); }
+    main { max-width: 1120px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 0 6.2%; }
+    .masthead { padding: 67px 0 34px; }
+    .eyebrow { margin: 0 0 14px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 clamp(42px, 7vw, 76px)/1 var(--display); letter-spacing: -.075em; }
+    .intro { max-width: 600px; margin: 15px 0 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .back-link { display: inline-block; margin-bottom: 25px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
+    .back-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .calculator { margin-bottom: 80px; padding: clamp(20px, 4vw, 38px); border: 1px solid var(--line); background: var(--surface); }
+    .section-heading { margin: 0; font: 600 24px var(--display); letter-spacing: -.04em; }
+    .calculator-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .calculator-header .section-heading { font-size: clamp(15px, 5vw, 24px); }
+    .section-intro, .help { margin: 7px 0 20px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .help { margin: 10px 0 0; }
+    .part { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .form-field { min-width: 0; display: grid; align-content: start; gap: 7px; color: var(--muted); font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    .form-field input, .form-field select { width: 100%; min-height: 43px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); font: 13px var(--sans); letter-spacing: normal; text-transform: none; }
+    .form-field input:disabled { background: #eceee9; color: #68716b; cursor: not-allowed; }
+    .form-actions { margin-top: 23px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .primary-button, .secondary-button { min-height: 41px; padding: 10px 14px; border: 1px solid var(--green); cursor: pointer; font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .primary-button { background: var(--green); color: #fff; }
+    .primary-button:hover { background: var(--green-dark); }
+    .secondary-button { background: transparent; color: var(--green); }
+    .secondary-button:hover { background: #f4f7f2; }
+    .status { min-height: 20px; margin: 16px 0 0; color: var(--green); font-size: 12px; line-height: 1.6; }
+    .status[data-error="true"] { color: #a53d32; }
+    .result-text { width: 100%; min-height: 143px; padding: 12px; border: 1px solid var(--line); border-radius: 0; background: #fafbf8; color: var(--ink); font: 12px/1.7 var(--mono); resize: vertical; }
+    .copy-button { margin-top: 10px; }
+    .copy-results { margin: 20px 0 24px; }
+    .result-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 24px; align-items: start; }
+    h3 { margin: 0 0 12px; font: 600 18px var(--display); letter-spacing: -.03em; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font: 12px var(--mono); }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: 10px; font-weight: 400; text-transform: uppercase; }
+    .chart { width: 100%; height: auto; display: block; background: #fafbf8; border: 1px solid var(--line); }
+    .chart text { fill: #68716b; font: 11px "DM Mono", monospace; }
+    .chart .grid-line { stroke: #d8ddd6; stroke-width: 1; }
+    .chart .curve { fill: none; stroke: #315a47; stroke-width: 3; stroke-linejoin: round; }
+    .chart circle { fill: #315a47; }
+    .custom-profile { margin-top: 20px; }
+    .custom-profile table { max-width: 360px; }
+    .custom-profile td input { width: 100%; min-width: 0; min-height: 38px; padding: 8px; border: 1px solid var(--line); font: 13px var(--sans); }
+    .notice { margin: 24px 0 0; padding: 15px; border-left: 3px solid var(--green); background: #f4f7f2; color: var(--ink); font-size: 12px; line-height: 1.7; }
+    .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    @media (max-width: 620px) {
+      .site-header { min-height: 65px; padding: 10px 5%; flex-wrap: wrap; gap: 10px; }
+      .brand-mark { width: 31px; height: 31px; }
+      .brand-name { font-size: 10px; }
+      .header-links { gap: 10px; }
+      .header-links a { font-size: 8px; }
+      main { padding: 0 5%; }
+      .masthead { padding: 52px 0 28px; }
+      .form-grid { gap: 15px; }
+      .result-grid { grid-template-columns: 1fr; }
+      .calculator { margin-bottom: 60px; }
+      .site-footer { padding: 17px 5%; font-size: 8px; }
+    }
+    @media (max-width: 420px) { .form-grid { grid-template-columns: 1fr; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <button class="brand-mark" type="button" aria-label="Sparks; double-click to open Trace Runner">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <g fill="none" stroke="#073f70" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" opacity=".65"><path d="M8 31h6v8h5M12 57v-5h11v-4M32 8v5h7v5h4M59 30h-5v-6M58 53h-9v4h-5M7 22h6v4h4M6 43h8v-3h3M23 7v5h5v3M31 57v-6h4v-4M40 57v-6h-3v-3M57 10h-7v4h-4M58 34h-3v-3M6 56h6v-5h3M47 58v-4h4v-2"/></g>
+          <g fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"><path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10"/></g>
+          <g fill="#e7f7ff"><circle cx="10" cy="17" r="4"/><circle cx="28" cy="17" r="4"/><circle cx="19" cy="49" r="4"/><circle cx="53" cy="19" r="4"/><circle cx="53" cy="45" r="4"/></g>
+        </svg>
+      </button>
+      <a class="brand-name" href="./index.html">Thayer Creations</a>
+    </div>
+    <nav class="header-links" aria-label="Main navigation">
+      <a href="./#projects">Projects</a>
+      <a href="./links.html">Awesome Links</a>
+      <a href="./quick-tools.html" aria-current="page">Quick tools</a>
+    </nav>
+  </header>
+  <main>
+    <section class="masthead" aria-labelledby="page-title">
+      <a class="back-link" href="./quick-tools.html">← All quick tools</a>
+      <p class="eyebrow">Quick tools · Electronics</p>
+      <h1 id="page-title">Battery Builder</h1>
+      <p class="intro">Explore series voltage and size parallel cells for a battery pack.</p>
+    </section>
+    <section class="calculator" aria-labelledby="calculator-title">
+      <form id="battery-form" novalidate>
+        <div class="calculator-header">
+          <h2 class="section-heading" id="calculator-title">Voltage calculator</h2>
+          <button class="secondary-button" type="reset">Reset</button>
+        </div>
+        <p class="section-intro">Choose a chemistry and series configuration, then add cell specifications to estimate the pack capacity and current.</p>
+        <div class="form-grid">
+          <label class="form-field" for="chemistry">Cell chemistry
+            <select id="chemistry">
+              <option value="li-ion">Lithium-ion (3.7 V)</option>
+              <option value="lead">Lead acid (6 cells for 12 V)</option>
+              <option value="alkaline">Alkaline (primary)</option>
+              <option value="lfp" selected>LFP (LiFePO4)</option>
+              <option value="nimh">Nickel metal hydride (NiMH)</option>
+              <option value="silver-oxide">Silver oxide (primary)</option>
+              <option value="sodium-ion">Sodium-ion</option>
+              <option value="li-sulfur">Lithium-sulfur</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label class="form-field" for="series-mode">Voltage target type
+            <select id="series-mode">
+              <option value="min">Minimum voltage target</option>
+              <option value="max">Maximum voltage limit</option>
+            </select>
+          </label>
+          <label class="form-field" for="series-cells">Cells in series
+            <input id="series-cells" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="Default: 4">
+          </label>
+          <label class="form-field" for="voltage-target">Voltage target / limit (V)
+            <input id="voltage-target" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="Calculated or enter a target">
+          </label>
+        </div>
+        <p class="help">Before calculating, enter a series cell count or voltage target; clear it to switch fields. If neither is entered, four series cells are assumed. After calculating, edit either field to update the results. A minimum target rounds series cells up; a maximum limit rounds down.</p>
+        <p class="status" id="series-status" data-error="true" role="status" aria-live="polite" hidden></p>
+
+        <section class="custom-profile" id="custom-profile" aria-labelledby="custom-heading" hidden>
+          <h3 id="custom-heading">Custom cell</h3>
+          <div class="form-grid">
+            <label class="form-field" for="custom-name">Cell name
+              <input id="custom-name" type="text" maxlength="100" placeholder="Custom">
+            </label>
+            <label class="form-field" for="custom-nominal">Nominal cell voltage (V)
+              <input id="custom-nominal" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="Enter nominal voltage">
+            </label>
+          </div>
+          <p class="help">Enter per-cell voltages at 0% and 100% for the assumed minimum and maximum; verify these are appropriate operating limits for your cell. Other rows are optional. Paste a voltage column from a spreadsheet into a voltage field. Blank rows are interpolated in the results.</p>
+          <div class="form-actions"><button class="secondary-button" id="toggle-custom-table" type="button" aria-expanded="true" aria-controls="custom-table-container">Hide voltage table</button></div>
+          <div id="custom-table-container">
+            <table>
+              <thead><tr><th scope="col">Charge</th><th scope="col">Cell voltage (V)</th></tr></thead>
+              <tbody id="custom-table"></tbody>
+            </table>
+          </div>
+          <p class="status" id="paste-status" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <div class="part">
+          <h2 class="section-heading">Capacity calculator</h2>
+          <p class="section-intro">Enter the capacity and continuous discharge rating of one cell. Enter a parallel cell count, minimum pack capacity, or minimum pack current to size the pack.</p>
+          <div class="form-grid">
+            <label class="form-field" for="cell-capacity">Cell capacity (Ah)
+              <input id="cell-capacity" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="e.g. 3">
+            </label>
+            <label class="form-field" for="c-rating">Cell C rating (C)
+              <input id="c-rating" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="e.g. 2">
+            </label>
+            <label class="form-field" for="cell-current">Cell discharge current (A)
+              <input id="cell-current" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="e.g. 6">
+            </label>
+            <label class="form-field" for="parallel-cells">Cells in parallel
+              <input id="parallel-cells" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="Default: 1">
+            </label>
+            <label class="form-field" for="pack-capacity">Total pack capacity (Ah)
+              <input id="pack-capacity" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="Calculated or enter a target">
+            </label>
+            <label class="form-field" for="pack-current">Continuous pack current (A)
+              <input id="pack-current" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="Calculated or enter a target">
+            </label>
+          </div>
+          <p class="help">Before calculating, enter either a C rating or cell discharge current, and one of the parallel cell count, pack capacity, or pack current. If none is entered for parallel sizing, one cell is assumed. After calculating, edit any field to update the pack: a pack capacity or current is treated as a minimum target and rounds the parallel count up; editing a cell specification keeps the parallel count. Target fields show the achieved value when you leave them. Unknown specifications remain blank.</p>
+        </div>
+        <div class="form-actions">
+          <button class="primary-button" type="submit">Calculate</button>
+          <button class="secondary-button" type="reset">Reset</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <section class="part" id="results" aria-labelledby="results-heading" hidden>
+          <h2 class="section-heading" id="results-heading">Pack results</h2>
+          <p class="help">Nominal energy is capacity in Ah multiplied by nominal pack voltage.</p>
+          <div class="copy-results">
+            <h3>Copyable results</h3>
+            <textarea class="result-text" id="result-text" rows="9" readonly aria-label="Battery calculation results"></textarea>
+            <button class="secondary-button copy-button" id="copy-results" type="button">Copy results</button>
+            <p class="status" id="copy-status" role="status" aria-live="polite"></p>
+          </div>
+          <div class="result-grid">
+            <div>
+              <h3>Voltage by charge</h3>
+              <table>
+                <thead><tr><th scope="col">Charge</th><th scope="col">Pack voltage</th></tr></thead>
+                <tbody id="voltage-table"></tbody>
+              </table>
+            </div>
+            <div>
+              <h3>Voltage vs. state of charge</h3>
+              <svg class="chart" id="voltage-chart" viewBox="0 0 480 300" role="img" aria-label="Estimated pack voltage versus state of charge. Selected values are also listed in the adjacent table."></svg>
+              <p class="help" id="chart-help">Horizontal: state of charge (%). Vertical: pack voltage (V). Points are illustrative estimates, not measured cell data.</p>
+            </div>
+          </div>
+        </section>
+      </form>
+      <p class="notice"><strong>Planning estimates only.</strong> Preset profiles are illustrative, not manufacturer discharge curves. Custom profiles use the values you enter. Cell voltage varies with model, load, temperature, aging and rest time; voltage alone is especially unreliable for LFP and NiMH state of charge. The endpoints are assumed operating limits, not necessarily rested voltages at 0% or 100%. Alkaline and silver oxide profiles represent primary cells: do not recharge them. Lithium-sulfur cells may also be primary; check the specific cell before charging. Check the exact cell datasheet, charger and BMS limits, wiring, fusing, thermal design, and continuous current ratings before building or charging a pack. Lead-acid cells may charge above the assumed maximum.</p>
+    </section>
+  </main>
+  <footer class="site-footer"><span>Thayer Creations · A field guide for makers</span><span>Every problem has two outcomes, success or insight</span></footer>
+  <script src="./brand.js"></script>
+  <script src="./battery-builder.js"></script>
+</body>
+</html>
