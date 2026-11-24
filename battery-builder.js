@@ -13,7 +13,7 @@
   const fields = Object.fromEntries([
     'chemistry', 'series-mode', 'series-cells', 'voltage-target', 'cell-capacity',
     'c-rating', 'cell-current', 'parallel-cells',
-    'pack-capacity', 'pack-current', 'custom-name', 'custom-nominal'
+    'pack-capacity', 'pack-current', 'custom-name', 'custom-nominal', 'cost-per-cell'
   ].map((id) => [id, document.getElementById(id)]));
   const status = document.getElementById('status');
   const seriesStatus = document.getElementById('series-status');
@@ -315,6 +315,9 @@
     const minVoltage = profile.voltages[0] * series;
     const maxVoltage = profile.voltages[10] * series;
     const digits = voltagePrecision([nominalVoltage, minVoltage, maxVoltage, ...tablePoints.map((point) => point.voltage)]);
+    const costPerCell = number('cost-per-cell', 'cost per cell');
+    const totalCells = series * parallel;
+    const totalCost = costPerCell === null ? null : costPerCell * totalCells;
     const resultLines = [
       `Chemistry: ${profile.name}${profile.points && fields['custom-name'].value.trim() ? ' (Custom)' : ''}`,
       `Configuration: ${series}S${parallel}P (${format(series * parallel)} cells)`,
@@ -327,6 +330,7 @@
       resultLines.push(`Nominal energy: ${format(packCapacity * profile.nominal * series)} Wh`);
     }
     if (packCurrent !== null) resultLines.push(`Max continuous current: ${formatCurrent(packCurrent)} A`);
+    if (totalCost !== null) resultLines.push(`Total cost: $${format(totalCost)}`);
     resultLines.push('Estimates only; verify cell ratings and limits before use.');
     resultText.value = resultLines.join('\n');
     table.replaceChildren();

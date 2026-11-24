@@ -193,6 +193,9 @@
             <label class="form-field" for="pack-current">Continuous pack current (A)
               <input id="pack-current" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="Calculated or enter a target">
             </label>
+            <label class="form-field" for="cost-per-cell">Cost per cell ($)
+              <input id="cost-per-cell" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="e.g. 5.50">
+            </label>
           </div>
           <p class="help">Before calculating, enter either a C rating or cell discharge current, and one of the parallel cell count, pack capacity, or pack current. If none is entered for parallel sizing, one cell is assumed. After calculating, edit any field to update the pack: a pack capacity or current is treated as a minimum target and rounds the parallel count up; editing a cell specification keeps the parallel count. Target fields show the achieved value when you leave them. Unknown specifications remain blank.</p>
         </div>
