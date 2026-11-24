@@ -45,7 +45,8 @@
     .form-field { min-width: 0; display: grid; align-content: start; gap: 7px; color: var(--muted); font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
     .form-field input, .form-field select { width: 100%; min-height: 43px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); font: 13px var(--sans); letter-spacing: normal; text-transform: none; }
     .form-field input:disabled { background: #eceee9; color: #68716b; cursor: not-allowed; }
-    .form-actions { margin-top: 23px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .form-actions { margin-top: 23px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .form-actions .form-field { margin: 0; gap: 3px; min-width: 160px; }
     .primary-button, .secondary-button { min-height: 41px; padding: 10px 14px; border: 1px solid var(--green); cursor: pointer; font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
     .primary-button { background: var(--green); color: #fff; }
     .primary-button:hover { background: var(--green-dark); }
@@ -193,15 +194,15 @@
             <label class="form-field" for="pack-current">Continuous pack current (A)
               <input id="pack-current" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="Calculated or enter a target">
             </label>
-            <label class="form-field" for="cost-per-cell">Cost per cell ($)
-              <input id="cost-per-cell" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="e.g. 5.50">
-            </label>
           </div>
           <p class="help">Before calculating, enter either a C rating or cell discharge current, and one of the parallel cell count, pack capacity, or pack current. If none is entered for parallel sizing, one cell is assumed. After calculating, edit any field to update the pack: a pack capacity or current is treated as a minimum target and rounds the parallel count up; editing a cell specification keeps the parallel count. Target fields show the achieved value when you leave them. Unknown specifications remain blank.</p>
         </div>
         <div class="form-actions">
           <button class="primary-button" type="submit">Calculate</button>
           <button class="secondary-button" type="reset">Reset</button>
+          <label class="form-field" for="cost-per-cell">Cost per cell ($)
+            <input id="cost-per-cell" type="number" min="0" max="1000000" step="any" inputmode="decimal" placeholder="e.g. 5.50">
+          </label>
         </div>
         <p class="status" id="status" role="status" aria-live="polite"></p>
         <section class="part" id="results" aria-labelledby="results-heading" hidden>
