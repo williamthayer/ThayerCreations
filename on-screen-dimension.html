@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="description" content="Display a calibrated dot grid and trace real-world dimensions directly on your screen.">
+  <title>On-screen Dimension — Thayer Creations</title>
+  <link rel="icon" type="image/svg+xml" href="./tc-logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; --paper: #f4f3ee; --surface: #fff; --ink: #1d2723; --muted: #68716b; --line: #d8ddd6; --green: #315a47; --green-dark: #234535; --lime: #d6e26e; --sans: "DM Sans", sans-serif; --display: Manrope, sans-serif; --mono: "DM Mono", monospace; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    a { color: inherit; }
+    button, input, select { font: inherit; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+    .site-header { min-height: 76px; padding: 0 max(6.2%, calc((100vw - 1440px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 12px; }
+    .brand-mark { position: relative; width: 35px; height: 35px; padding: 0; display: block; overflow: visible; border: 1px solid #0e5fa8; background: #0e5fa8; cursor: pointer; transform: rotate(-4deg); }
+    .brand-mark svg { width: 100%; height: 100%; display: block; }
+    .brand-spark { position: absolute; z-index: 1; top: 50%; left: 50%; width: 2px; height: 8px; border-radius: 2px; background: var(--spark-color); box-shadow: 0 0 5px var(--spark-color); pointer-events: none; animation: logo-spark-flight .42s cubic-bezier(.15,.7,.25,1) forwards; }
+    @keyframes logo-spark-flight { from { opacity: 1; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(0) scaleY(1); } to { opacity: 0; transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateY(calc(var(--spark-distance) * -1)) scaleY(.2); } }
+    .brand-name { color: var(--ink); font: 800 12px var(--display); letter-spacing: .14em; text-decoration: none; text-transform: uppercase; }
+    .header-links { display: flex; align-items: center; gap: 25px; }
+    .header-links a { color: var(--muted); font: 10px var(--mono); letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
+    .header-links a:hover, .header-links a[aria-current="page"] { color: var(--green); }
+    main { max-width: 1320px; min-height: calc(100vh - 150px); margin: 0 auto; padding: 0 5%; }
+    .masthead { padding: 58px 0 31px; }
+    .eyebrow { margin: 0 0 14px; color: var(--green); font: 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font: 600 clamp(42px, 7vw, 76px)/1 var(--display); letter-spacing: -.075em; }
+    .intro { max-width: 650px; margin: 15px 0 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .back-link { display: inline-block; margin-bottom: 25px; color: var(--green); font: 10px var(--mono); letter-spacing: .05em; text-decoration: none; text-transform: uppercase; }
+    .back-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .tool { margin-bottom: 75px; border: 1px solid var(--line); background: var(--surface); }
+    .settings { padding: clamp(20px, 3vw, 32px); border-bottom: 1px solid var(--line); }
+    .tool-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .tool-heading h2 { margin: 0; font: 600 24px var(--display); letter-spacing: -.04em; }
+    .help { margin: 8px 0 20px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .form-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(110px, .7fr); gap: 14px; align-items: end; }
+    .form-field { min-width: 0; display: grid; align-content: start; gap: 7px; color: var(--muted); font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    .form-field input, .form-field select { width: 100%; min-height: 43px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); font: 13px var(--sans); letter-spacing: normal; text-transform: none; }
+    .primary-button, .secondary-button { min-height: 41px; padding: 10px 14px; border: 1px solid var(--green); cursor: pointer; font: 10px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    .primary-button { background: var(--green); color: #fff; }
+    .primary-button:hover { background: var(--green-dark); }
+    .secondary-button { background: transparent; color: var(--green); }
+    .secondary-button:hover { background: #f4f7f2; }
+    .export-button { width: 100%; min-height: 43px; background: var(--green); color: #fff; }
+    .export-button:hover { background: var(--green-dark); }
+    .export-dialog { width: min(390px, calc(100vw - 32px)); padding: 25px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+    .export-dialog::backdrop { background: rgba(18, 30, 24, .65); }
+    .export-dialog h2 { margin: 0; font: 600 25px var(--display); letter-spacing: -.04em; }
+    .export-dialog p { margin: 8px 0 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .export-options { display: grid; gap: 8px; margin-bottom: 20px; }
+    .export-option { padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); background: #fff; font-size: 12px; cursor: pointer; }
+    .export-option:has(input:checked) { border-color: var(--green); background: #f4f7f2; }
+    .export-option input { accent-color: var(--green); }
+    .export-option strong { display: block; font: 500 11px var(--mono); text-transform: uppercase; }
+    .export-option span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .export-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; }
+    .board-shell { position: relative; height: min(67vh, 720px); min-height: 430px; overflow: hidden; background: #fbfcf9; }
+    .board { width: 100%; height: 100%; display: block; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cpath d='M24 3v42M3 24h42' fill='none' stroke='%23000' stroke-width='3'/%3E%3C/svg%3E") 24 24, crosshair; touch-action: none; }
+    .board-toolbar, .board-status { position: absolute; z-index: 2; display: flex; align-items: center; gap: 8px; pointer-events: none; }
+    .board-toolbar { top: 14px; right: 14px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 260px); }
+    .board-toolbar button { pointer-events: auto; }
+    .drawing-tools { display: flex; gap: 5px; pointer-events: auto; }
+    .drawing-tools button[aria-pressed="true"] { background: var(--green); color: #fff; }
+    .toolbar-separator { width: 1px; height: 27px; margin: 0 2px; background: var(--line); }
+    .board-status { bottom: 14px; left: 14px; max-width: calc(100% - 28px); padding: 8px 10px; background: rgba(255,255,255,.9); border: 1px solid var(--line); color: var(--muted); font: 10px var(--mono); line-height: 1.5; }
+    .screen-info { position: absolute; top: 14px; left: 14px; z-index: 2; padding: 8px 10px; border: 1px solid var(--line); background: rgba(255,255,255,.9); color: var(--ink); font: 9px var(--mono); line-height: 1.6; text-transform: uppercase; pointer-events: none; }
+    .screen-info strong { display: block; color: var(--green); font-size: 11px; font-weight: 500; }
+    .site-footer { min-height: 74px; padding: 18px 6.2%; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--muted); font: 9px var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    body.focus-mode { overflow: hidden; }
+    .focus-mode .site-header, .focus-mode .masthead, .focus-mode .settings, .focus-mode .site-footer { display: none; }
+    .focus-mode main { max-width: none; min-height: 0; padding: 0; }
+    .focus-mode .tool { position: fixed; inset: 0; z-index: 20; margin: 0; border: 0; }
+    .focus-mode .board-shell { width: 100%; height: 100%; min-height: 100%; }
+    .focus-mode .screen-info, .focus-mode .board-status { background: rgba(255,255,255,.94); }
+    @media (max-width: 800px) { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 620px) {
+      .site-header { min-height: 65px; padding: 10px 5%; flex-wrap: wrap; gap: 10px; }
+      .brand-mark { width: 31px; height: 31px; }
+      .brand-name { font-size: 10px; }
+      .header-links { gap: 10px; }
+      .header-links a { font-size: 8px; }
+      main { padding: 0 4%; }
+      .masthead { padding: 50px 0 26px; }
+      .tool-heading { align-items: flex-start; }
+      .board-toolbar { gap: 5px; max-width: 58%; }
+      .board-toolbar button { min-height: 36px; padding: 7px 9px; font-size: 9px; }
+      .drawing-tools { flex-wrap: wrap; justify-content: flex-end; }
+      .board-shell { min-height: 390px; }
+      .site-footer { padding: 17px 5%; font-size: 8px; }
+    }
+    @media (max-width: 430px) { .form-grid { grid-template-columns: 1fr; } .tool-heading { display: grid; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <button class="brand-mark" type="button" aria-label="Sparks; double-click to open Trace Runner">
+        <svg viewBox="0 0 64 64" focusable="false">
+          <g fill="none" stroke="#073f70" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" opacity=".65"><path d="M8 31h6v8h5M12 57v-5h11v-4M32 8v5h7v5h4M59 30h-5v-6M58 53h-9v4h-5M7 22h6v4h4M6 43h8v-3h3M23 7v5h5v3M31 57v-6h4v-4M40 57v-6h-3v-3M57 10h-7v4h-4M58 34h-3v-3M6 56h6v-5h3M47 58v-4h4v-2"/></g>
+          <g fill="none" stroke="#a9e3ff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"><path d="M10 17h18M19 17v32M53 19H43l-7 7v12l7 7h10"/></g>
+          <g fill="#e7f7ff"><circle cx="10" cy="17" r="4"/><circle cx="28" cy="17" r="4"/><circle cx="19" cy="49" r="4"/><circle cx="53" cy="19" r="4"/><circle cx="53" cy="45" r="4"/></g>
+        </svg>
+      </button>
+      <a class="brand-name" href="./index.html">Thayer Creations</a>
+    </div>
+    <nav class="header-links" aria-label="Main navigation">
+      <a href="./#projects">Projects</a>
+      <a href="./links.html">Awesome Links</a>
+      <a href="./quick-tools.html" aria-current="page">Quick tools</a>
+    </nav>
+  </header>
+  <main>
+    <section class="masthead" aria-labelledby="page-title">
+      <a class="back-link" href="./quick-tools.html">← All quick tools</a>
+      <p class="eyebrow">Quick tools · On-screen measuring</p>
+      <h1 id="page-title">On-screen Dimension</h1>
+      <p class="intro">Calibrate the grid to your display, place an object against the screen, then click dots to trace and measure it.</p>
+    </section>
+
+    <section class="tool" aria-labelledby="tool-title">
+      <div class="settings">
+        <div class="tool-heading">
+          <h2 id="tool-title">Grid setup</h2>
+          <button class="primary-button" id="focus-button" type="button">Full screen</button>
+        </div>
+        <p class="help">Enter the display's diagonal screen size. Scale compensates for any difference between the calculated grid and a ruler held on the display.</p>
+        <div class="form-grid">
+          <label class="form-field" for="screen-size">Screen size (inches diagonal)
+            <input id="screen-size" type="number" min="1" max="500" step="0.1" inputmode="decimal" value="27">
+          </label>
+          <label class="form-field" for="scale">Scale
+            <input id="scale" type="number" min="10" max="500" step="1" inputmode="decimal" value="100" aria-describedby="scale-suffix">
+          </label>
+          <label class="form-field" for="unit">Grid units
+            <select id="unit">
+              <option value="in">Inches</option>
+              <option value="cm">Centimeters</option>
+            </select>
+          </label>
+          <label class="form-field" for="spacing">Grid spacing
+            <select id="spacing">
+              <option value="1">1</option>
+              <option value="0.5">1/2</option>
+              <option value="0.25">1/4</option>
+              <option value="0.1">1/10</option>
+            </select>
+          </label>
+          <button class="secondary-button export-button" id="export-button" type="button" disabled>Export</button>
+        </div>
+        <span id="scale-suffix" hidden>Scale is entered as a percentage.</span>
+      </div>
+
+      <div class="board-shell" id="board-shell">
+        <canvas class="board" id="dimension-board" aria-label="Calibrated dot grid. Click dots to trace an object."></canvas>
+        <div class="screen-info" aria-live="polite">
+          <strong id="calibration-summary">27 in screen · 100% scale</strong>
+          <span id="screen-resolution"></span>
+        </div>
+        <div class="board-toolbar" aria-label="Trace controls">
+          <div class="drawing-tools" aria-label="Drawing tools">
+            <button class="secondary-button tool-button" type="button" data-tool="pointer" aria-pressed="true">Pointer</button>
+            <button class="secondary-button tool-button" type="button" data-tool="line" aria-pressed="false">Line</button>
+            <button class="secondary-button tool-button" type="button" data-tool="rectangle" aria-pressed="false">Rectangle</button>
+            <button class="secondary-button tool-button" type="button" data-tool="circle" aria-pressed="false">Circle</button>
+            <button class="secondary-button tool-button" type="button" data-tool="arc" aria-pressed="false">Arc</button>
+          </div>
+          <span class="toolbar-separator" aria-hidden="true"></span>
+          <button class="secondary-button" id="delete-button" type="button" disabled>Delete</button>
+          <button class="secondary-button" id="undo-button" type="button" disabled>Undo</button>
+          <button class="secondary-button" id="clear-button" type="button" disabled>Clear</button>
+          <button class="primary-button" id="exit-focus-button" type="button" hidden>Exit full screen</button>
+        </div>
+        <div class="board-status" id="board-status" role="status" aria-live="polite">Choose a drawing tool, or use Pointer to select and delete an entry.</div>
+      </div>
+    </section>
+  </main>
+  <dialog class="export-dialog" id="export-dialog" aria-labelledby="export-heading">
+    <form method="dialog">
+      <h2 id="export-heading">Export drawing</h2>
+      <p>Choose a file type for the current board.</p>
+      <div class="export-options">
+        <label class="export-option">
+          <input type="radio" name="export-type" value="png" checked>
+          <span><strong>PNG image</strong>Current board view with grid and dimensions</span>
+        </label>
+        <label class="export-option">
+          <input type="radio" name="export-type" value="svg">
+          <span><strong>SVG vector</strong>Physical-size drawing with dimension labels</span>
+        </label>
+        <label class="export-option">
+          <input type="radio" name="export-type" value="dxf">
+          <span><strong>DXF drawing</strong>Inch-based geometry for CAD software</span>
+        </label>
+      </div>
+      <div class="export-dialog-actions">
+        <button class="secondary-button" value="cancel">Cancel</button>
+        <button class="primary-button" id="confirm-export" value="export">Export</button>
+      </div>
+    </form>
+  </dialog>
+  <footer class="site-footer"><span>Thayer Creations · A field guide for makers</span><span>Every problem has two outcomes, success or insight</span></footer>
+  <script src="./brand.js"></script>
+  <script src="./on-screen-dimension.js"></script>
+</body>
+</html>

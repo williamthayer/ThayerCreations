@@ -222,7 +222,7 @@
       svgElement('line', { x1: left, y1: y, x2: right, y2: y, class: 'grid-line' });
       svgElement('text', { x: left - 8, y: y + 4, 'text-anchor': 'end' }, formatVoltage(ticks[index], digits));
     }
-    for (const percent of [0, 5, 20, 40, 60, 80, 95, 100]) {
+    for (const percent of [0, 20, 40, 60, 80, 100]) {
       const x = left + (right - left) * percent / 100;
       svgElement('text', { x, y: 272, 'text-anchor': 'middle' }, String(percent));
     }
