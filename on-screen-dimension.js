@@ -591,79 +591,82 @@
     return Number(value.toFixed(5));
   }
 
-  function svgLabel(entry) {
-    const settings = currentSettings();
-    const factor = settings.unit === "cm" ? 2.54 : 1;
-    if (entry.type === "circle") {
-      const radius = Math.hypot(entry.end.x - entry.start.x, entry.end.y - entry.start.y);
-      return `Ø ${(radius * 2 * factor).toFixed(3).replace(/\.?0+$/, "")} ${settings.unit}`;
-    }
-    if (entry.type === "rectangle") {
-      return `W ${(Math.abs(entry.end.x - entry.start.x) * factor).toFixed(3).replace(/\.?0+$/, "")} × H ${(Math.abs(entry.end.y - entry.start.y) * factor).toFixed(3).replace(/\.?0+$/, "")} ${settings.unit}`;
-    }
-    if (entry.type === "arc") {
-      const arc = arcGeometry(entry.start, entry.middle, entry.end);
-      return `Arc ${arc ? (arc.length * factor).toFixed(3).replace(/\.?0+$/, "") : "0"} ${settings.unit} · R ${(arc ? arc.radius * factor : 0).toFixed(3).replace(/\.?0+$/, "")}`;
-    }
-    return `${(Math.hypot(entry.end.x - entry.start.x, entry.end.y - entry.start.y) * factor).toFixed(3).replace(/\.?0+$/, "")} ${settings.unit}`;
-  }
-
   function exportSvg() {
     if (!entries.length) return;
     const bounds = exportBounds();
+    const toMm = 25.4;
     const shapes = entries.map((entry) => {
-      const style = 'fill="none" stroke="#315a47" stroke-width="0.025" vector-effect="non-scaling-stroke"';
-      const label = svgLabel(entry);
+      const style = 'fill="none" stroke="#315a47" stroke-width="0.35"';
       let geometry = "";
-      let labelX = (entry.start.x + entry.end.x) / 2;
-      let labelY = (entry.start.y + entry.end.y) / 2 - 0.1;
       if (entry.type === "line") {
-        geometry = `<line x1="${svgNumber(entry.start.x)}" y1="${svgNumber(entry.start.y)}" x2="${svgNumber(entry.end.x)}" y2="${svgNumber(entry.end.y)}" ${style}/>`;
+        geometry = `<line x1="${svgNumber(entry.start.x * toMm)}" y1="${svgNumber(entry.start.y * toMm)}" x2="${svgNumber(entry.end.x * toMm)}" y2="${svgNumber(entry.end.y * toMm)}" ${style}/>`;
       } else if (entry.type === "rectangle") {
-        geometry = `<rect x="${svgNumber(Math.min(entry.start.x, entry.end.x))}" y="${svgNumber(Math.min(entry.start.y, entry.end.y))}" width="${svgNumber(Math.abs(entry.end.x - entry.start.x))}" height="${svgNumber(Math.abs(entry.end.y - entry.start.y))}" ${style}/>`;
-        labelY = Math.max(entry.start.y, entry.end.y) + 0.18;
+        geometry = `<rect x="${svgNumber(Math.min(entry.start.x, entry.end.x) * toMm)}" y="${svgNumber(Math.min(entry.start.y, entry.end.y) * toMm)}" width="${svgNumber(Math.abs(entry.end.x - entry.start.x) * toMm)}" height="${svgNumber(Math.abs(entry.end.y - entry.start.y) * toMm)}" ${style}/>`;
       } else if (entry.type === "circle") {
         const radius = Math.hypot(entry.end.x - entry.start.x, entry.end.y - entry.start.y);
-        geometry = `<circle cx="${svgNumber(entry.start.x)}" cy="${svgNumber(entry.start.y)}" r="${svgNumber(radius)}" ${style}/>`;
-        labelX = entry.start.x;
-        labelY = entry.start.y - 0.1;
+        geometry = `<circle cx="${svgNumber(entry.start.x * toMm)}" cy="${svgNumber(entry.start.y * toMm)}" r="${svgNumber(radius * toMm)}" ${style}/>`;
       } else {
         const arc = arcGeometry(entry.start, entry.middle, entry.end);
         if (arc) {
-          geometry = `<path d="M ${svgNumber(entry.start.x)} ${svgNumber(entry.start.y)} A ${svgNumber(arc.radius)} ${svgNumber(arc.radius)} 0 ${arc.sweep > Math.PI ? 1 : 0} ${arc.counterclockwise ? 0 : 1} ${svgNumber(entry.end.x)} ${svgNumber(entry.end.y)}" ${style}/>`;
-          labelX = entry.middle.x;
-          labelY = entry.middle.y - 0.1;
+          geometry = `<path d="M ${svgNumber(entry.start.x * toMm)} ${svgNumber(entry.start.y * toMm)} A ${svgNumber(arc.radius * toMm)} ${svgNumber(arc.radius * toMm)} 0 ${arc.sweep > Math.PI ? 1 : 0} ${arc.counterclockwise ? 0 : 1} ${svgNumber(entry.end.x * toMm)} ${svgNumber(entry.end.y * toMm)}" ${style}/>`;
         }
       }
-      return `<g>${geometry}<text x="${svgNumber(labelX)}" y="${svgNumber(labelY)}" fill="#234535" font-family="monospace" font-size="0.12" text-anchor="middle">${label}</text></g>`;
+      return `<g>${geometry}</g>`;
     }).join("");
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgNumber(bounds.width)}in" height="${svgNumber(bounds.height)}in" viewBox="${svgNumber(bounds.minX)} ${svgNumber(bounds.minY)} ${svgNumber(bounds.width)} ${svgNumber(bounds.height)}"><title>On-screen Dimension export</title><rect x="${svgNumber(bounds.minX)}" y="${svgNumber(bounds.minY)}" width="${svgNumber(bounds.width)}" height="${svgNumber(bounds.height)}" fill="#ffffff"/>${shapes}</svg>`;
+    const svgWidth = bounds.width * toMm;
+    const svgHeight = bounds.height * toMm;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgNumber(svgWidth)}mm" height="${svgNumber(svgHeight)}mm" viewBox="${svgNumber(bounds.minX * toMm)} ${svgNumber(bounds.minY * toMm)} ${svgNumber(svgWidth)} ${svgNumber(svgHeight)}"><title>On-screen Dimension export</title><rect x="${svgNumber(bounds.minX * toMm)}" y="${svgNumber(bounds.minY * toMm)}" width="${svgNumber(svgWidth)}" height="${svgNumber(svgHeight)}" fill="#ffffff"/>${shapes}</svg>`;
     downloadFile(svg, "on-screen-dimension.svg", "image/svg+xml;charset=utf-8");
   }
 
   function dxfPair(code, value) {
-    return `${code}\n${value}\n`;
+    return `${code}\r\n${value}\r\n`;
   }
 
-  function exportDxf() {
+  function exportDxf(exportUnit) {
     if (!entries.length) return;
+    const unitScale = exportUnit === "mm" ? 25.4 : 1;
+    const normalizedDegrees = (radians) => ((radians * 180 / Math.PI) % 360 + 360) % 360;
+    const pointPair = (x, y) => dxfPair(10, svgNumber(x * unitScale)) + dxfPair(20, svgNumber(-y * unitScale)) + dxfPair(30, 0);
+    const lineEntity = (start, end) =>
+      dxfPair(0, "LINE") +
+      dxfPair(8, "0") +
+      pointPair(start.x, start.y) +
+      dxfPair(11, svgNumber(end.x * unitScale)) +
+      dxfPair(21, svgNumber(-end.y * unitScale)) +
+      dxfPair(31, 0);
+
     let dxf = "";
-    dxf += dxfPair(0, "SECTION") + dxfPair(2, "HEADER") + dxfPair(9, "$ACADVER") + dxfPair(1, "AC1015");
-    dxf += dxfPair(9, "$INSUNITS") + dxfPair(70, 1) + dxfPair(0, "ENDSEC");
+    dxf += dxfPair(0, "SECTION") + dxfPair(2, "HEADER") + dxfPair(9, "$ACADVER") + dxfPair(1, "AC1009");
+    dxf += dxfPair(9, "$INSUNITS") + dxfPair(70, exportUnit === "mm" ? 4 : 1);
+    dxf += dxfPair(9, "$MEASUREMENT") + dxfPair(70, exportUnit === "mm" ? 1 : 0);
+    dxf += dxfPair(9, "$LUNITS") + dxfPair(70, 2);
+    dxf += dxfPair(9, "$LUPREC") + dxfPair(70, 4);
+    dxf += dxfPair(0, "ENDSEC");
     dxf += dxfPair(0, "SECTION") + dxfPair(2, "ENTITIES");
 
     for (const entry of entries) {
       if (entry.type === "line") {
-        dxf += dxfPair(0, "LINE") + dxfPair(8, "DIMENSIONS") + dxfPair(10, svgNumber(entry.start.x)) + dxfPair(20, svgNumber(-entry.start.y)) + dxfPair(30, 0) + dxfPair(11, svgNumber(entry.end.x)) + dxfPair(21, svgNumber(-entry.end.y)) + dxfPair(31, 0);
+        dxf += lineEntity(entry.start, entry.end);
       } else if (entry.type === "circle") {
         const radius = Math.hypot(entry.end.x - entry.start.x, entry.end.y - entry.start.y);
-        dxf += dxfPair(0, "CIRCLE") + dxfPair(8, "DIMENSIONS") + dxfPair(10, svgNumber(entry.start.x)) + dxfPair(20, svgNumber(-entry.start.y)) + dxfPair(30, 0) + dxfPair(40, svgNumber(radius));
+        dxf += dxfPair(0, "CIRCLE") + dxfPair(8, "0");
+        dxf += pointPair(entry.start.x, entry.start.y) + dxfPair(40, svgNumber(radius * unitScale));
       } else if (entry.type === "arc") {
         const arc = arcGeometry(entry.start, entry.middle, entry.end);
         if (arc) {
-          const startDegrees = arc.startAngle * 180 / Math.PI;
-          const endDegrees = arc.endAngle * 180 / Math.PI;
-          dxf += dxfPair(0, "ARC") + dxfPair(8, "DIMENSIONS") + dxfPair(10, svgNumber(arc.center.x)) + dxfPair(20, svgNumber(-arc.center.y)) + dxfPair(30, 0) + dxfPair(40, svgNumber(arc.radius)) + dxfPair(50, svgNumber(startDegrees)) + dxfPair(51, svgNumber(endDegrees));
+          const centerY = -arc.center.y;
+          const startAngle = Math.atan2(-entry.start.y - centerY, entry.start.x - arc.center.x);
+          const middleAngle = Math.atan2(-entry.middle.y - centerY, entry.middle.x - arc.center.x);
+          const endAngle = Math.atan2(-entry.end.y - centerY, entry.end.x - arc.center.x);
+          const endSweep = (endAngle - startAngle + Math.PI * 2) % (Math.PI * 2);
+          const middleSweep = (middleAngle - startAngle + Math.PI * 2) % (Math.PI * 2);
+          const followsCounterclockwise = middleSweep <= endSweep;
+          const firstAngle = followsCounterclockwise ? startAngle : endAngle;
+          const secondAngle = followsCounterclockwise ? endAngle : startAngle;
+          dxf += dxfPair(0, "ARC") + dxfPair(8, "0");
+          dxf += pointPair(arc.center.x, arc.center.y) + dxfPair(40, svgNumber(arc.radius * unitScale));
+          dxf += dxfPair(50, svgNumber(normalizedDegrees(firstAngle))) + dxfPair(51, svgNumber(normalizedDegrees(secondAngle)));
         }
       } else {
         const corners = [
@@ -674,12 +677,12 @@
           entry.start
         ];
         for (let index = 1; index < corners.length; index += 1) {
-          dxf += dxfPair(0, "LINE") + dxfPair(8, "DIMENSIONS") + dxfPair(10, svgNumber(corners[index - 1].x)) + dxfPair(20, svgNumber(-corners[index - 1].y)) + dxfPair(30, 0) + dxfPair(11, svgNumber(corners[index].x)) + dxfPair(21, svgNumber(-corners[index].y)) + dxfPair(31, 0);
+          dxf += lineEntity(corners[index - 1], corners[index]);
         }
       }
     }
     dxf += dxfPair(0, "ENDSEC") + dxfPair(0, "EOF");
-    downloadFile(dxf, "on-screen-dimension.dxf", "application/dxf;charset=utf-8");
+    downloadFile(dxf, `on-screen-dimension-${exportUnit}.dxf`, "application/dxf;charset=utf-8");
   }
 
   function exportPng() {
@@ -775,7 +778,7 @@
     const fileType = exportDialog.querySelector('input[name="export-type"]:checked').value;
     if (fileType === "png") exportPng();
     else if (fileType === "svg") exportSvg();
-    else exportDxf();
+    else exportDxf(fileType === "dxf-mm" ? "mm" : "in");
   });
   clearButton.addEventListener("click", () => {
     entries.length = 0;
